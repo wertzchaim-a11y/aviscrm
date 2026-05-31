@@ -1,0 +1,127 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
+
+export function useData() {
+  const [facilities, setFacilities] = useState([]);
+  const [items, setItems] = useState([]);
+  const [steps, setSteps] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [notes, setNotes] = useState([]);
+  const [ideas, setIdeas] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    const [f, i, s, t, n, id] = await Promise.all([
+      supabase.from('facilities').select('*').order('position'),
+      supabase.from('items').select('*').order('created_at'),
+      supabase.from('steps').select('*').order('position'),
+      supabase.from('tasks').select('*').order('created_at'),
+      supabase.from('notes').select('*').order('created_at'),
+      supabase.from('ideas').select('*').order('created_at', { ascending: false }),
+    ]);
+    setFacilities(f.data || []);
+    setItems(i.data || []);
+    setSteps(s.data || []);
+    setTasks(t.data || []);
+    setNotes(n.data || []);
+    setIdeas(id.data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  // ITEMS
+  const addItem = async (data) => {
+    const { data: row } = await supabase.from('items').insert(data).select().single();
+    if (row) { setItems(prev => [...prev, row]); return row; }
+  };
+  const updateItem = async (id, data) => {
+    const { data: row } = await supabase.from('items').update(data).eq('id', id).select().single();
+    if (row) setItems(prev => prev.map(i => i.id === id ? row : i));
+  };
+  const deleteItem = async (id) => {
+    await supabase.from('items').delete().eq('id', id);
+    setItems(prev => prev.filter(i => i.id !== id));
+    setSteps(prev => prev.filter(s => s.item_id !== id));
+    setTasks(prev => prev.filter(t => t.item_id !== id));
+    setNotes(prev => prev.filter(n => n.item_id !== id));
+  };
+
+  // STEPS
+  const addStep = async (data) => {
+    const pos = steps.filter(s => s.item_id === data.item_id).length;
+    const { data: row } = await supabase.from('steps').insert({ ...data, position: pos }).select().single();
+    if (row) setSteps(prev => [...prev, row]);
+  };
+  const toggleStep = async (id) => {
+    const step = steps.find(s => s.id === id);
+    if (!step) return;
+    const { data: row } = await supabase.from('steps').update({ done: !step.done }).eq('id', id).select().single();
+    if (row) setSteps(prev => prev.map(s => s.id === id ? row : s));
+  };
+  const deleteStep = async (id) => {
+    await supabase.from('steps').delete().eq('id', id);
+    setSteps(prev => prev.filter(s => s.id !== id));
+    setTasks(prev => prev.map(t => t.step_id === id ? { ...t, step_id: null } : t));
+  };
+
+  // TASKS
+  const addTask = async (data) => {
+    const { data: row } = await supabase.from('tasks').insert(data).select().single();
+    if (row) setTasks(prev => [...prev, row]);
+  };
+  const updateTask = async (id, data) => {
+    const { data: row } = await supabase.from('tasks').update(data).eq('id', id).select().single();
+    if (row) setTasks(prev => prev.map(t => t.id === id ? row : t));
+  };
+  const toggleTask = async (id) => {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    await updateTask(id, { done: !task.done });
+  };
+  const deleteTask = async (id) => {
+    await supabase.from('tasks').delete().eq('id', id);
+    setTasks(prev => prev.filter(t => t.id !== id));
+  };
+
+  // NOTES
+  const addNote = async (data) => {
+    const { data: row } = await supabase.from('notes').insert(data).select().single();
+    if (row) setNotes(prev => [...prev, row]);
+  };
+  const deleteNote = async (id) => {
+    await supabase.from('notes').delete().eq('id', id);
+    setNotes(prev => prev.filter(n => n.id !== id));
+  };
+
+  // IDEAS
+  const addIdea = async (data) => {
+    const { data: row } = await supabase.from('ideas').insert(data).select().single();
+    if (row) setIdeas(prev => [row, ...prev]);
+  };
+  const deleteIdea = async (id) => {
+    await supabase.from('ideas').delete().eq('id', id);
+    setIdeas(prev => prev.filter(i => i.id !== id));
+  };
+
+  // PROGRESS CALC
+  const calcProgress = (item) => {
+    if (item.manual_progress) return item.progress;
+    const itemSteps = steps.filter(s => s.item_id === item.id);
+    if (itemSteps.length > 0) return Math.round(itemSteps.filter(s => s.done).length / itemSteps.length * 100);
+    const itemTasks = tasks.filter(t => t.item_id === item.id);
+    if (itemTasks.length > 0) return Math.round(itemTasks.filter(t => t.done).length / itemTasks.length * 100);
+    return 0;
+  };
+
+  return {
+    facilities, items, steps, tasks, notes, ideas, loading, fetchAll,
+    addItem, updateItem, deleteItem,
+    addStep, toggleStep, deleteStep,
+    addTask, updateTask, toggleTask, deleteTask,
+    addNote, deleteNote,
+    addIdea, deleteIdea,
+    calcProgress,
+  };
+}
