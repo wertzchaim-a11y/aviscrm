@@ -4,7 +4,7 @@ import ItemSheet from '../components/ItemSheet';
 function fmt(d) { if (!d) return ''; const [y, m, day] = d.split('-'); return `${parseInt(m)}/${parseInt(day)}/${y}`; }
 
 export default function ArchivePage({ data }) {
-  const { facilities, items, steps, tasks, notes, ideas, addStep, toggleStep, deleteStep, addTask, updateItem, updateTask, toggleTask, deleteTask, addNote, deleteNote, calcProgress } = data;
+  const { facilities, items, steps, tasks, notes, ideas, addStep, toggleStep, deleteStep, addTask, updateItem, deleteItem, updateTask, toggleTask, deleteTask, addNote, deleteNote, calcProgress } = data;
   const [openItem, setOpenItem] = useState(null);
   const [facFilter, setFacFilter] = useState('');
   const [respFilter, setRespFilter] = useState('');
