@@ -10,7 +10,7 @@ function isOverdue(d) { return d && d < new Date().toISOString().slice(0, 10); }
 const EMPTY_FORM = { name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' };
 
 export default function PipelinePage({ data, onGoIdeas }) {
-  const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, deleteIdea, calcProgress } = data;
+  const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, reorderItems, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, deleteIdea, calcProgress } = data;
   const [openItem, setOpenItem] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState(EMPTY_FORM);
@@ -97,19 +97,34 @@ export default function PipelinePage({ data, onGoIdeas }) {
                       style={{ fontSize: '16px', lineHeight: 1, background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: '0 2px' }}>+</button>
                   </div>
                   {facItems.length === 0 && <div style={{ fontSize: '11px', color: 'var(--text-3)', padding: '4px 0' }}>No items</div>}
-                  {facItems.map(item => {
+                  {facItems.map((item, idx) => {
                     const prog = calcProgress(item);
                     const overdue = isOverdue(item.due_date);
                     return (
-                      <div key={item.id} className="card" style={{ padding: '9px 10px', marginBottom: '7px', cursor: 'pointer' }} onClick={() => setOpenItem(item.id)}>
-                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '4px', marginBottom: '4px' }}>
-                          <span style={{ fontWeight: '600', fontSize: '12px', lineHeight: '1.3', flex: 1 }}>{item.name}</span>
-                          <span className={`badge ${item.type === 'project' ? 'badge-project' : 'badge-event'}`} style={{ fontSize: '9px', padding: '1px 5px' }}>{item.type}</span>
+                      <div key={item.id}
+                        draggable
+                        onDragStart={e => { e.dataTransfer.setData('text/plain', idx); e.currentTarget.style.opacity = '0.4'; }}
+                        onDragEnd={e => { e.currentTarget.style.opacity = '1'; }}
+                        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.borderRadius = 'var(--radius-md)'; }}
+                        onDragLeave={e => { e.currentTarget.style.borderColor = 'transparent'; }}
+                        onDrop={e => {
+                          e.preventDefault();
+                          e.currentTarget.style.borderColor = 'transparent';
+                          const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
+                          if (fromIdx !== idx) reorderItems(fac.id, resp, fromIdx, idx);
+                        }}
+                        style={{ marginBottom: '7px', border: '2px solid transparent', borderRadius: 'var(--radius-md)', transition: 'border-color 0.15s', cursor: 'grab' }}>
+                        <div className="card" style={{ padding: '9px 10px', cursor: 'pointer' }} onClick={() => setOpenItem(item.id)}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '4px', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '10px', color: 'var(--text-3)', marginRight: '2px', userSelect: 'none' }}>⠿</span>
+                            <span style={{ fontWeight: '600', fontSize: '12px', lineHeight: '1.3', flex: 1 }}>{item.name}</span>
+                            <span className={`badge ${item.type === 'project' ? 'badge-project' : 'badge-event'}`} style={{ fontSize: '9px', padding: '1px 5px' }}>{item.type}</span>
+                          </div>
+                          {item.due_date ? <div style={{ fontSize: '10px', color: overdue ? 'var(--red)' : 'var(--text-3)', marginBottom: '5px' }}>{overdue ? 'Overdue: ' : 'Due: '}{fmt(item.due_date)}</div>
+                            : <div style={{ fontSize: '10px', color: 'var(--text-3)', marginBottom: '5px' }}>No due date</div>}
+                          <div className="prog-bg"><div className="prog-fill" style={{ width: `${prog}%` }} /></div>
+                          <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '3px' }}>{prog}%{item.assigned_to ? ' · ' + item.assigned_to : ''}</div>
                         </div>
-                        {item.due_date ? <div style={{ fontSize: '10px', color: overdue ? 'var(--red)' : 'var(--text-3)', marginBottom: '5px' }}>{overdue ? 'Overdue: ' : 'Due: '}{fmt(item.due_date)}</div>
-                          : <div style={{ fontSize: '10px', color: 'var(--text-3)', marginBottom: '5px' }}>No due date</div>}
-                        <div className="prog-bg"><div className="prog-fill" style={{ width: `${prog}%` }} /></div>
-                        <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '3px' }}>{prog}%{item.assigned_to ? ' · ' + item.assigned_to : ''}</div>
                       </div>
                     );
                   })}
