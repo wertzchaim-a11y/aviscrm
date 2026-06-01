@@ -68,8 +68,20 @@ export function useData() {
 
   // TASKS
   const addTask = async (data) => {
-    const { data: row } = await supabase.from('tasks').insert(data).select().single();
+    const cleanData = {
+      name: data.name,
+      due_date: data.due_date || null,
+      assigned_to: data.assigned_to || null,
+      priority: data.priority || 'Medium',
+      notes: data.notes || null,
+      item_id: data.item_id || null,
+      step_id: data.step_id || null,
+      done: false,
+    };
+    const { data: row, error } = await supabase.from('tasks').insert(cleanData).select().single();
+    if (error) console.error('addTask error:', error);
     if (row) setTasks(prev => [...prev, row]);
+    return row;
   };
   const updateTask = async (id, data) => {
     const { data: row } = await supabase.from('tasks').update(data).eq('id', id).select().single();
