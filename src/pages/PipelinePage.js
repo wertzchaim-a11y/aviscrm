@@ -7,19 +7,50 @@ const RESP_BADGE = { Marketing: 'badge-marketing', 'Employee retention': 'badge-
 function fmt(d) { if (!d) return ''; const [y, m, day] = d.split('-'); return `${parseInt(m)}/${parseInt(day)}`; }
 function isOverdue(d) { return d && d < new Date().toISOString().slice(0, 10); }
 
+const EMPTY_FORM = { name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' };
+
 export default function PipelinePage({ data, onGoIdeas }) {
-  const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, deleteIdea, calcProgress } = data;
+  const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, deleteIdea, calcProgress } = data;
   const [openItem, setOpenItem] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' });
+  const [addForm, setAddForm] = useState(EMPTY_FORM);
   const [newIdeaCol, setNewIdeaCol] = useState(null);
   const [newIdeaForm, setNewIdeaForm] = useState({ title: '', body: '' });
 
+  // Quick-add lists for steps, tasks, notes, ideas during creation
+  const [quickSteps, setQuickSteps] = useState([]);
+  const [quickTasks, setQuickTasks] = useState([]);
+  const [quickNotes, setQuickNotes] = useState([]);
+  const [quickIdeas, setQuickIdeas] = useState([]);
+  const [stepInput, setStepInput] = useState('');
+  const [taskInput, setTaskInput] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium' });
+  const [noteInput, setNoteInput] = useState('');
+  const [ideaInput, setIdeaInput] = useState({ title: '', body: '' });
+  const [activeTab, setActiveTab] = useState('details'); // details | steps | tasks | notes | ideas
+
+  const resetForm = () => {
+    setAddForm(EMPTY_FORM);
+    setQuickSteps([]); setQuickTasks([]); setQuickNotes([]); setQuickIdeas([]);
+    setStepInput(''); setTaskInput({ name: '', due_date: '', assigned_to: '', priority: 'Medium' });
+    setNoteInput(''); setIdeaInput({ title: '', body: '' });
+    setActiveTab('details');
+    setShowAddForm(false);
+  };
+
   const handleAddItem = async () => {
     if (!addForm.name.trim() || !addForm.facility_id) return;
-    await addItem(addForm);
-    setAddForm({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' });
-    setShowAddForm(false);
+    const newItem = await addItem({
+      name: addForm.name, type: addForm.type, facility_id: addForm.facility_id,
+      responsibility: addForm.responsibility, due_date: addForm.due_date || null,
+      assigned_to: addForm.assigned_to || null, progress: 0, manual_progress: false, completed: false,
+    });
+    if (newItem) {
+      for (let i = 0; i < quickSteps.length; i++) await addStep({ item_id: newItem.id, name: quickSteps[i], position: i });
+      for (const t of quickTasks) await addTask({ item_id: newItem.id, name: t.name, due_date: t.due_date || null, assigned_to: t.assigned_to || null, priority: t.priority, notes: '', step_id: null, done: false });
+      for (const n of quickNotes) await addNote({ item_id: newItem.id, text: n });
+      for (const id of quickIdeas) await addIdea({ title: id.title, responsibility: addForm.responsibility, body: id.body });
+    }
+    resetForm();
   };
 
   const handleAddIdea = async (resp) => {
@@ -31,6 +62,14 @@ export default function PipelinePage({ data, onGoIdeas }) {
 
   const openItemObj = items.find(i => i.id === openItem);
   const openFacility = facilities.find(f => f.id === openItemObj?.facility_id);
+
+  const tabStyle = (t) => ({
+    fontSize: '12px', padding: '5px 12px', borderRadius: '20px', fontFamily: 'var(--font)',
+    fontWeight: activeTab === t ? '600' : '400', cursor: 'pointer', border: 'none',
+    background: activeTab === t ? 'var(--text)' : 'var(--surface)',
+    color: activeTab === t ? '#fff' : 'var(--text-2)',
+    border: activeTab !== t ? '1px solid var(--border)' : 'none',
+  });
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '0 0 80px' }}>
@@ -82,6 +121,7 @@ export default function PipelinePage({ data, onGoIdeas }) {
               );
             })}
 
+            {/* Ideas column */}
             <div style={{ background: '#FFFEF0', border: '1px solid #E8E4A0', borderRadius: 'var(--radius-lg)', padding: '10px', minWidth: '160px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ fontSize: '11px', fontWeight: '600', color: '#7A6E00' }}>💡 Ideas</span>
@@ -114,42 +154,146 @@ export default function PipelinePage({ data, onGoIdeas }) {
         </div>
       ))}
 
+      {/* ADD ITEM MODAL — tabbed */}
       {showAddForm && (
-        <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setShowAddForm(false)}>
-          <div className="sheet-center" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && resetForm()}>
+          <div className="sheet-center" style={{ padding: '20px', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Add project or event</h2>
-              <button className="btn-icon" onClick={() => setShowAddForm(false)} style={{ fontSize: '18px' }}>×</button>
+              <button className="btn-icon" onClick={resetForm} style={{ fontSize: '18px' }}>×</button>
             </div>
-            <div className="form-row">
-              <div className="form-group full"><label>Name</label><input value={addForm.name} onChange={e => setAddForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
-              <div className="form-group"><label>Type</label>
-                <select value={addForm.type} onChange={e => setAddForm(p => ({ ...p, type: e.target.value }))}>
-                  <option value="project">Project</option><option value="event">Event</option>
-                </select>
-              </div>
-              <div className="form-group"><label>Facility</label>
-                <select value={addForm.facility_id} onChange={e => setAddForm(p => ({ ...p, facility_id: e.target.value }))}>
-                  <option value="">Select…</option>
-                  {facilities.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                </select>
-              </div>
-              <div className="form-group"><label>Responsibility</label>
-                <select value={addForm.responsibility} onChange={e => setAddForm(p => ({ ...p, responsibility: e.target.value }))}>
-                  {RESP_COLS.map(r => <option key={r}>{r}</option>)}
-                </select>
-              </div>
-              <div className="form-group"><label>Due date</label><input type="date" value={addForm.due_date} onChange={e => setAddForm(p => ({ ...p, due_date: e.target.value }))} /></div>
-              <div className="form-group"><label>Assigned to</label><input value={addForm.assigned_to} onChange={e => setAddForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '2px' }}>
+              {[['details','Details'],['steps','Steps'],['tasks','Tasks'],['notes','Notes'],['ideas','Ideas']].map(([t, l]) => (
+                <button key={t} onClick={() => setActiveTab(t)} style={tabStyle(t)}>
+                  {l}{t === 'steps' && quickSteps.length > 0 ? ` (${quickSteps.length})` : ''}
+                  {t === 'tasks' && quickTasks.length > 0 ? ` (${quickTasks.length})` : ''}
+                  {t === 'notes' && quickNotes.length > 0 ? ` (${quickNotes.length})` : ''}
+                  {t === 'ideas' && quickIdeas.length > 0 ? ` (${quickIdeas.length})` : ''}
+                </button>
+              ))}
             </div>
-            <div className="form-actions">
-              <button className="btn btn-sm" onClick={() => setShowAddForm(false)}>Cancel</button>
-              <button className="btn btn-sm btn-primary" onClick={handleAddItem}>Save</button>
+
+            {/* DETAILS TAB */}
+            {activeTab === 'details' && (
+              <div className="form-row">
+                <div className="form-group full"><label>Name *</label><input value={addForm.name} onChange={e => setAddForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="Project or event name" /></div>
+                <div className="form-group"><label>Type</label>
+                  <select value={addForm.type} onChange={e => setAddForm(p => ({ ...p, type: e.target.value }))}>
+                    <option value="project">Project</option><option value="event">Event</option>
+                  </select>
+                </div>
+                <div className="form-group"><label>Facility *</label>
+                  <select value={addForm.facility_id} onChange={e => setAddForm(p => ({ ...p, facility_id: e.target.value }))}>
+                    <option value="">Select facility…</option>
+                    {facilities.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  </select>
+                </div>
+                <div className="form-group"><label>Responsibility</label>
+                  <select value={addForm.responsibility} onChange={e => setAddForm(p => ({ ...p, responsibility: e.target.value }))}>
+                    {RESP_COLS.map(r => <option key={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div className="form-group"><label>Due date (optional)</label><input type="date" value={addForm.due_date} onChange={e => setAddForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+                <div className="form-group"><label>Assigned to (optional)</label><input value={addForm.assigned_to} onChange={e => setAddForm(p => ({ ...p, assigned_to: e.target.value }))} placeholder="Name" /></div>
+              </div>
+            )}
+
+            {/* STEPS TAB */}
+            {activeTab === 'steps' && (
+              <div>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                  <input value={stepInput} onChange={e => setStepInput(e.target.value)} placeholder="Step name…" onKeyDown={e => { if (e.key === 'Enter' && stepInput.trim()) { setQuickSteps(p => [...p, stepInput.trim()]); setStepInput(''); }}} autoFocus />
+                  <button className="btn btn-sm btn-primary" style={{ whiteSpace: 'nowrap' }} onClick={() => { if (stepInput.trim()) { setQuickSteps(p => [...p, stepInput.trim()]); setStepInput(''); }}}>Add</button>
+                </div>
+                {quickSteps.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No steps yet.</div> :
+                  quickSteps.map((s, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '13px' }}>
+                      <div style={{ width: '15px', height: '15px', borderRadius: '50%', border: '1.5px solid var(--border-md)', flexShrink: 0 }} />
+                      <span style={{ flex: 1 }}>{i + 1}. {s}</span>
+                      <button className="btn-icon" style={{ width: '22px', height: '22px', fontSize: '12px' }} onClick={() => setQuickSteps(p => p.filter((_, j) => j !== i))}>×</button>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* TASKS TAB */}
+            {activeTab === 'tasks' && (
+              <div>
+                <div className="form-row" style={{ marginBottom: '10px' }}>
+                  <div className="form-group full"><label>Task name</label><input value={taskInput.name} onChange={e => setTaskInput(p => ({ ...p, name: e.target.value }))} placeholder="Task name…" autoFocus /></div>
+                  <div className="form-group"><label>Due date</label><input type="date" value={taskInput.due_date} onChange={e => setTaskInput(p => ({ ...p, due_date: e.target.value }))} /></div>
+                  <div className="form-group"><label>Assigned to</label><input value={taskInput.assigned_to} onChange={e => setTaskInput(p => ({ ...p, assigned_to: e.target.value }))} /></div>
+                  <div className="form-group"><label>Priority</label>
+                    <select value={taskInput.priority} onChange={e => setTaskInput(p => ({ ...p, priority: e.target.value }))}>
+                      <option>High</option><option>Medium</option><option>Low</option>
+                    </select>
+                  </div>
+                </div>
+                <button className="btn btn-sm btn-primary" style={{ marginBottom: '12px' }} onClick={() => { if (taskInput.name.trim()) { setQuickTasks(p => [...p, { ...taskInput }]); setTaskInput({ name: '', due_date: '', assigned_to: '', priority: 'Medium' }); }}}>Add task</button>
+                {quickTasks.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No tasks yet.</div> :
+                  quickTasks.map((t, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
+                      <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: '1.5px solid var(--border-md)', flexShrink: 0 }} />
+                      <span style={{ flex: 1 }}>{t.name}</span>
+                      <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{t.priority}</span>
+                      <button className="btn-icon" style={{ width: '22px', height: '22px', fontSize: '12px' }} onClick={() => setQuickTasks(p => p.filter((_, j) => j !== i))}>×</button>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* NOTES TAB */}
+            {activeTab === 'notes' && (
+              <div>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                  <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} placeholder="Write a note…" style={{ minHeight: '80px' }} autoFocus />
+                </div>
+                <button className="btn btn-sm btn-primary" style={{ marginBottom: '12px' }} onClick={() => { if (noteInput.trim()) { setQuickNotes(p => [...p, noteInput.trim()]); setNoteInput(''); }}}>Add note</button>
+                {quickNotes.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No notes yet.</div> :
+                  quickNotes.map((n, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
+                      <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--green)', marginTop: '5px', flexShrink: 0 }} />
+                      <span style={{ flex: 1 }}>{n}</span>
+                      <button className="btn-icon" style={{ width: '22px', height: '22px', fontSize: '12px' }} onClick={() => setQuickNotes(p => p.filter((_, j) => j !== i))}>×</button>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            {/* IDEAS TAB */}
+            {activeTab === 'ideas' && (
+              <div>
+                <div className="form-row" style={{ marginBottom: '10px' }}>
+                  <div className="form-group full"><label>Idea title</label><input value={ideaInput.title} onChange={e => setIdeaInput(p => ({ ...p, title: e.target.value }))} placeholder="What's the idea?" autoFocus /></div>
+                  <div className="form-group full"><label>Details (optional)</label><textarea value={ideaInput.body} onChange={e => setIdeaInput(p => ({ ...p, body: e.target.value }))} placeholder="Describe it…" /></div>
+                </div>
+                <button className="btn btn-sm btn-primary" style={{ marginBottom: '12px' }} onClick={() => { if (ideaInput.title.trim()) { setQuickIdeas(p => [...p, { ...ideaInput }]); setIdeaInput({ title: '', body: '' }); }}}>Add idea</button>
+                {quickIdeas.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No ideas yet.</div> :
+                  quickIdeas.map((id, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
+                      <span style={{ fontSize: '14px' }}>💡</span>
+                      <span style={{ flex: 1 }}>{id.title}</span>
+                      <button className="btn-icon" style={{ width: '22px', height: '22px', fontSize: '12px' }} onClick={() => setQuickIdeas(p => p.filter((_, j) => j !== i))}>×</button>
+                    </div>
+                  ))
+                }
+              </div>
+            )}
+
+            <div className="form-actions" style={{ marginTop: '16px' }}>
+              <button className="btn btn-sm" onClick={resetForm}>Cancel</button>
+              <button className="btn btn-sm btn-primary" onClick={handleAddItem}>Save project</button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Add idea sheet */}
       {newIdeaCol && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setNewIdeaCol(null)}>
           <div className="sheet-center" style={{ padding: '20px' }}>
