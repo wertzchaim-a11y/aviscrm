@@ -322,7 +322,7 @@ export default function PipelinePage({ data, onGoIdeas }) {
         <ItemSheet item={openItemObj} facility={openFacility}
           steps={steps} tasks={tasks} notes={notes} ideas={ideas}
           onClose={() => setOpenItem(null)}
-          onUpdateItem={updateItem} onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
+          onUpdateItem={updateItem} onDeleteItem={deleteItem} onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
           onAddTask={addTask} onUpdateTask={updateTask} onToggleTask={toggleTask} onDeleteTask={deleteTask}
           onAddNote={addNote} onDeleteNote={deleteNote}
           onGoIdeas={() => { setOpenItem(null); onGoIdeas(openItemObj.responsibility); }}
