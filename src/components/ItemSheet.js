@@ -3,18 +3,10 @@ import React, { useState } from 'react';
 const RESP_BADGE = { Marketing: 'badge-marketing', 'Employee retention': 'badge-retention', Recruitment: 'badge-recruitment', Other: 'badge-other' };
 const PRI_BADGE = { High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low' };
 
-function fmt(d) {
-  if (!d) return '';
-  const [y, m, day] = d.split('-');
-  return `${parseInt(m)}/${parseInt(day)}/${y}`;
-}
+function fmt(d) { if (!d) return ''; const [y, m, day] = d.split('-'); return `${parseInt(m)}/${parseInt(day)}/${y}`; }
+function isOverdue(d) { if (!d) return false; return d < new Date().toISOString().slice(0, 10); }
 
-function isOverdue(d) {
-  if (!d) return false;
-  return d < new Date().toISOString().slice(0, 10);
-}
-
-export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, onClose, onUpdateItem, onAddStep, onToggleStep, onDeleteStep, onAddTask, onUpdateTask, onToggleTask, onDeleteTask, onAddNote, onDeleteNote, onGoIdeas, calcProgress }) {
+export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, onClose, onUpdateItem, onDeleteItem, onAddStep, onToggleStep, onDeleteStep, onAddTask, onUpdateTask, onToggleTask, onDeleteTask, onAddNote, onDeleteNote, onGoIdeas, calcProgress }) {
   const [activeTask, setActiveTask] = useState(null);
   const [editingTask, setEditingTask] = useState(false);
   const [showStepForm, setShowStepForm] = useState(false);
@@ -25,6 +17,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
   const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', step_id: '', notes: '' });
   const [editForm, setEditForm] = useState({});
   const [manualVal, setManualVal] = useState(item.progress);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const progress = calcProgress(item);
   const itemSteps = steps.filter(s => s.item_id === item.id);
@@ -63,7 +56,12 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
     setManualVal(parseInt(v));
     onUpdateItem(item.id, { progress: parseInt(v) });
   };
+  const handleDeleteItem = async () => {
+    await onDeleteItem(item.id);
+    onClose();
+  };
 
+  // TASK DETAIL VIEW
   if (activeTask) {
     const step = itemSteps.find(s => s.id === activeTask.step_id);
     return (
@@ -77,7 +75,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                 <span className={`badge ${PRI_BADGE[activeTask.priority]}`}>{activeTask.priority}</span>
                 {activeTask.assigned_to && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>{activeTask.assigned_to}</span>}
                 {activeTask.due_date && <span className="badge" style={{ background: isOverdue(activeTask.due_date) && !activeTask.done ? 'var(--red-light)' : 'var(--gray-light)', color: isOverdue(activeTask.due_date) && !activeTask.done ? 'var(--red)' : 'var(--gray)' }}>{fmt(activeTask.due_date)}</span>}
-                {step && <span className="badge" style={{ background: 'var(--blue-light)', color: 'var(--blue)' }}>{step.name}</span>}
+                {step && <span className="badge" style={{ background: 'var(--blue-light)', color: 'var(--blue)' }}>Step: {step.name}</span>}
                 <span className="badge" style={{ background: activeTask.done ? 'var(--green-light)' : 'var(--gray-light)', color: activeTask.done ? 'var(--green-text)' : 'var(--gray)' }}>{activeTask.done ? 'Done' : 'Open'}</span>
               </div>
             </div>
@@ -97,7 +95,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                     <option>High</option><option>Medium</option><option>Low</option>
                   </select>
                 </div>
-                <div className="form-group"><label>Step</label>
+                <div className="form-group"><label>Step / Stage</label>
                   <select value={editForm.step_id || ''} onChange={e => setEditForm(p => ({ ...p, step_id: e.target.value || null }))}>
                     <option value="">— none —</option>
                     {itemSteps.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -114,7 +112,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
             <div style={{ padding: '12px 16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button className="btn btn-sm" onClick={() => { setEditForm({ name: activeTask.name, due_date: activeTask.due_date, assigned_to: activeTask.assigned_to, priority: activeTask.priority, step_id: activeTask.step_id, notes: activeTask.notes }); setEditingTask(true); }}>Edit</button>
               <button className="btn btn-sm btn-primary" onClick={async () => { await onToggleTask(activeTask.id); setActiveTask(p => ({ ...p, done: !p.done })); }}>{activeTask.done ? 'Mark open' : 'Mark done'}</button>
-              <button className="btn btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red-light)', marginLeft: 'auto' }} onClick={async () => { await onDeleteTask(activeTask.id); setActiveTask(null); }}>Delete</button>
+              <button className="btn btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red-light)', marginLeft: 'auto' }} onClick={async () => { if (window.confirm('Delete this task?')) { await onDeleteTask(activeTask.id); setActiveTask(null); } }}>Delete task</button>
             </div>
           )}
         </div>
@@ -140,6 +138,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
             {item.assigned_to && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>{item.assigned_to}</span>}
           </div>
         </div>
+
         {/* Progress */}
         <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
@@ -149,9 +148,10 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
           </div>
           {item.manual_progress && <input type="range" min="0" max="100" step="1" value={manualVal} onChange={e => handleManualSlider(e.target.value)} style={{ width: '100%', border: 'none', padding: 0, background: 'transparent' }} />}
         </div>
+
         {/* Steps */}
         <div className="section-hdr">
-          <span className="section-ttl">Steps</span>
+          <span className="section-ttl">Steps / Stages</span>
           <button className="btn btn-sm" style={{ fontSize: '11px' }} onClick={() => setShowStepForm(p => !p)}>+ Add step</button>
         </div>
         <div style={{ padding: '0 16px' }}>
@@ -160,6 +160,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 0', borderBottom: '1px solid var(--border)', fontSize: '13px' }}>
               <div className={`cb round ${s.done ? 'checked' : ''}`} onClick={() => onToggleStep(s.id)}>{s.done && <span style={{ color: '#fff', fontSize: '9px', fontWeight: '700' }}>✓</span>}</div>
               <span style={{ flex: 1, textDecoration: s.done ? 'line-through' : 'none', color: s.done ? 'var(--text-3)' : 'var(--text)' }}>{i + 1}. {s.name}</span>
+              <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{itemTasks.filter(t => t.step_id === s.id).length} tasks</span>
               <button className="btn-icon" style={{ width: '24px', height: '24px', fontSize: '12px' }} onClick={() => onDeleteStep(s.id)}>🗑</button>
             </div>
           ))}
@@ -171,6 +172,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
             </div>
           )}
         </div>
+
         {/* Tasks */}
         <div className="section-hdr" style={{ marginTop: '8px' }}>
           <span className="section-ttl">Tasks</span>
@@ -178,18 +180,23 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
         </div>
         <div style={{ padding: '0 16px' }}>
           {itemTasks.length === 0 && !showTaskForm && <p style={{ fontSize: '12px', color: 'var(--text-3)', padding: '4px 0 8px' }}>No tasks yet.</p>}
-          {itemTasks.map(t => (
-            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 8px', marginBottom: '3px', borderRadius: 'var(--radius)', cursor: 'pointer', border: '1px solid transparent' }}
-              className="task-row-hover"
-              onClick={() => setActiveTask(t)}>
-              <div className={`cb ${t.done ? 'checked' : ''}`} onClick={e => { e.stopPropagation(); onToggleTask(t.id); }}>{t.done && <span style={{ color: '#fff', fontSize: '9px', fontWeight: '700' }}>✓</span>}</div>
-              <span style={{ flex: 1, fontSize: '13px', fontWeight: '500', textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--text-3)' : 'var(--text)' }}>{t.name}</span>
-              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                {t.due_date && <span style={{ fontSize: '11px', color: isOverdue(t.due_date) && !t.done ? 'var(--red)' : 'var(--text-3)' }}>{fmt(t.due_date)}</span>}
-                <span className={`badge ${PRI_BADGE[t.priority]}`}>{t.priority}</span>
+          {itemTasks.map(t => {
+            const linkedStep = itemSteps.find(s => s.id === t.step_id);
+            return (
+              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 8px', marginBottom: '3px', borderRadius: 'var(--radius)', cursor: 'pointer', border: '1px solid transparent' }}
+                onClick={() => setActiveTask(t)}>
+                <div className={`cb ${t.done ? 'checked' : ''}`} onClick={e => { e.stopPropagation(); onToggleTask(t.id); }}>{t.done && <span style={{ color: '#fff', fontSize: '9px', fontWeight: '700' }}>✓</span>}</div>
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: '13px', fontWeight: '500', textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--text-3)' : 'var(--text)' }}>{t.name}</span>
+                  {linkedStep && <div style={{ fontSize: '10px', color: 'var(--blue)', marginTop: '1px' }}>↳ {linkedStep.name}</div>}
+                </div>
+                <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                  {t.due_date && <span style={{ fontSize: '11px', color: isOverdue(t.due_date) && !t.done ? 'var(--red)' : 'var(--text-3)' }}>{fmt(t.due_date)}</span>}
+                  <span className={`badge ${PRI_BADGE[t.priority]}`}>{t.priority}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {showTaskForm && (
             <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius)', padding: '12px', marginTop: '6px' }}>
               <div className="form-row" style={{ marginBottom: '8px' }}>
@@ -201,7 +208,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                     <option>High</option><option>Medium</option><option>Low</option>
                   </select>
                 </div>
-                <div className="form-group"><label>Step</label>
+                <div className="form-group"><label>Step / Stage</label>
                   <select value={taskForm.step_id} onChange={e => setTaskForm(p => ({ ...p, step_id: e.target.value }))}>
                     <option value="">— none —</option>
                     {itemSteps.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -216,6 +223,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
             </div>
           )}
         </div>
+
         {/* Notes */}
         <div className="section-hdr" style={{ marginTop: '8px' }}>
           <span className="section-ttl">Notes</span>
@@ -241,16 +249,21 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
             </div>
           )}
         </div>
-        {/* Mark complete */}
-        <div style={{ padding: '0 16px 8px', marginTop: '4px' }}>
-          <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', background: item.completed ? 'var(--gray)' : 'var(--green)' }}
+
+        {/* Mark complete + Delete project */}
+        <div style={{ padding: '12px 16px 8px', marginTop: '4px', display: 'flex', gap: '8px' }}>
+          <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: item.completed ? 'var(--gray)' : 'var(--green)' }}
             onClick={() => onUpdateItem(item.id, { completed: !item.completed, completed_at: !item.completed ? new Date().toISOString() : null })}>
-            {item.completed ? '↩ Reopen project' : '✓ Mark as complete'}
+            {item.completed ? '↩ Reopen' : '✓ Mark complete'}
+          </button>
+          <button className="btn btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red-light)' }}
+            onClick={() => { if (window.confirm('Delete this project and all its tasks? This cannot be undone.')) handleDeleteItem(); }}>
+            Delete
           </button>
         </div>
 
-        {/* Ideas for this responsibility */}
-        <div className="section-hdr" style={{ marginTop: '8px' }}>
+        {/* Ideas */}
+        <div className="section-hdr" style={{ marginTop: '4px' }}>
           <span className="section-ttl">💡 Ideas for {item.responsibility}</span>
           <button className="btn btn-sm" style={{ fontSize: '11px', color: 'var(--blue)' }} onClick={onGoIdeas}>View all →</button>
         </div>
