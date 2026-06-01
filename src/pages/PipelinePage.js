@@ -10,7 +10,7 @@ function isOverdue(d) { return d && d < new Date().toISOString().slice(0, 10); }
 const EMPTY_FORM = { name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' };
 
 export default function PipelinePage({ data, onGoIdeas }) {
-  const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, deleteIdea, calcProgress } = data;
+  const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, deleteIdea, calcProgress } = data;
   const [openItem, setOpenItem] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState(EMPTY_FORM);
