@@ -13,7 +13,7 @@ export default function CalendarPage({ data }) {
   const [filters, setFilters] = useState({ task: true, event: true, project: true });
   const [openItem, setOpenItem] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [addType, setAddType] = useState('task');
+  const [addType, setAddType] = useState('task'); // 'task' | 'project' | 'event'
   const [itemForm, setItemForm] = useState({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' });
   const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
 
@@ -33,7 +33,7 @@ export default function CalendarPage({ data }) {
   const handleSave = async () => {
     if (addType === 'task') {
       if (!taskForm.name.trim()) return;
-      await addTask({ name: taskForm.name, due_date: taskForm.due_date || null, assigned_to: taskForm.assigned_to, priority: taskForm.priority, notes: taskForm.notes, item_id: taskForm.item_id || null, step_id: null, done: false });
+      await addTask({ name: taskForm.name.trim(), due_date: taskForm.due_date || null, assigned_to: taskForm.assigned_to || null, priority: taskForm.priority || 'Medium', notes: taskForm.notes || null, item_id: taskForm.item_id || null, step_id: null, done: false });
       setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
     } else {
       if (!itemForm.name.trim() || !itemForm.facility_id) return;
@@ -43,6 +43,7 @@ export default function CalendarPage({ data }) {
     setShowAdd(false);
   };
 
+  // Build event map
   const evMap = {};
   const addEv = (date, entry) => { if (!date) return; (evMap[date] = evMap[date] || []).push(entry); };
   items.forEach(item => {
@@ -53,6 +54,7 @@ export default function CalendarPage({ data }) {
 
   const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
   const clsColor = { proj: { bg: '#EEEDFE', color: '#3C3489' }, evt: { bg: '#E1F5EE', color: '#085041' }, tsk: { bg: '#E6F1FB', color: '#0C447C' } };
+
   const openItemObj = items.find(i => i.id === openItem);
   const openFacility = facilities.find(f => f.id === openItemObj?.facility_id);
 
@@ -111,6 +113,7 @@ export default function CalendarPage({ data }) {
         </div>
       </div>
 
+      {/* Add modal */}
       {showAdd && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setShowAdd(false)}>
           <div className="sheet-center" style={{ padding: '20px' }}>
@@ -118,6 +121,7 @@ export default function CalendarPage({ data }) {
               <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Add to calendar</h2>
               <button className="btn-icon" onClick={() => setShowAdd(false)} style={{ fontSize: '18px' }}>×</button>
             </div>
+            {/* Type selector */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
               {[['task', 'Task'], ['project', 'Project'], ['event', 'Event']].map(([t, l]) => (
                 <button key={t} onClick={() => setAddType(t)}
@@ -126,6 +130,7 @@ export default function CalendarPage({ data }) {
                 </button>
               ))}
             </div>
+
             {addType === 'task' ? (
               <div className="form-row">
                 <div className="form-group full"><label>Task name</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="What needs to be done?" /></div>
@@ -162,6 +167,7 @@ export default function CalendarPage({ data }) {
                 <div className="form-group"><label>Assigned to</label><input value={itemForm.assigned_to} onChange={e => setItemForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
               </div>
             )}
+
             <div className="form-actions">
               <button className="btn btn-sm" onClick={() => setShowAdd(false)}>Cancel</button>
               <button className="btn btn-sm btn-primary" onClick={handleSave}>Save</button>
@@ -174,7 +180,7 @@ export default function CalendarPage({ data }) {
         <ItemSheet item={openItemObj} facility={openFacility}
           steps={steps} tasks={tasks} notes={notes} ideas={ideas}
           onClose={() => setOpenItem(null)}
-          onUpdateItem={updateItem} onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
+          onUpdateItem={updateItem} onDeleteItem={deleteItem} onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
           onAddTask={addTask} onUpdateTask={updateTask} onToggleTask={toggleTask} onDeleteTask={deleteTask}
           onAddNote={addNote} onDeleteNote={deleteNote}
           onGoIdeas={() => setOpenItem(null)}
