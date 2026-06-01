@@ -6,7 +6,7 @@ function fmt(d) { if (!d) return '—'; const [y, m, day] = d.split('-'); return
 function isOverdue(d) { return d && d < new Date().toISOString().slice(0, 10); }
 
 export default function TasksPage({ data }) {
-  const { facilities, items, steps, tasks, notes, ideas, addStep, toggleStep, deleteStep, addTask, updateItem, updateTask, toggleTask, deleteTask, addNote, deleteNote, calcProgress } = data;
+  const { facilities, items, steps, tasks, notes, ideas, addStep, toggleStep, deleteStep, addTask, updateItem, deleteItem, updateTask, toggleTask, deleteTask, addNote, deleteNote, calcProgress } = data;
   const [facFilter, setFacFilter] = useState('');
   const [respFilter, setRespFilter] = useState('');
   const [personFilter, setPersonFilter] = useState('');
