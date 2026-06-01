@@ -16,6 +16,13 @@ export default function IdeasPage({ data, initialResp }) {
     return true;
   });
 
+  const grouped = RESP_COLS.reduce((acc, r) => {
+    acc[r] = filtered.filter(i => i.responsibility === r);
+    return acc;
+  }, {});
+
+  const showColumns = !respFilter && !search;
+
   const handleSave = async () => {
     if (!form.title.trim()) return;
     await addIdea(form);
@@ -31,10 +38,10 @@ export default function IdeasPage({ data, initialResp }) {
           <button className="btn btn-primary btn-sm" onClick={() => setShowForm(true)}>+ New idea</button>
         </div>
         <div style={{ display: 'flex', gap: '6px', overflowX: 'auto' }}>
-          <button onClick={() => setRespFilter('')} style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', border: 'none', fontFamily: 'var(--font)', fontWeight: !respFilter ? '600' : '400', background: !respFilter ? 'var(--text)' : 'var(--surface)', color: !respFilter ? '#fff' : 'var(--text-2)', cursor: 'pointer', whiteSpace: 'nowrap', border: respFilter ? '1px solid var(--border)' : 'none' }}>All</button>
+          <button onClick={() => setRespFilter('')} style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: !respFilter ? '600' : '400', background: !respFilter ? 'var(--text)' : 'var(--surface)', color: !respFilter ? '#fff' : 'var(--text-2)', cursor: 'pointer', whiteSpace: 'nowrap', border: respFilter ? '1px solid var(--border)' : 'none' }}>All</button>
           {RESP_COLS.map(r => (
             <button key={r} onClick={() => setRespFilter(r === respFilter ? '' : r)}
-              style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', border: 'none', fontFamily: 'var(--font)', fontWeight: r === respFilter ? '600' : '400', background: r === respFilter ? 'var(--text)' : 'var(--surface)', color: r === respFilter ? '#fff' : 'var(--text-2)', cursor: 'pointer', whiteSpace: 'nowrap', border: r !== respFilter ? '1px solid var(--border)' : 'none' }}>
+              style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: r === respFilter ? '600' : '400', background: r === respFilter ? 'var(--text)' : 'var(--surface)', color: r === respFilter ? '#fff' : 'var(--text-2)', cursor: 'pointer', whiteSpace: 'nowrap', border: r !== respFilter ? '1px solid var(--border)' : 'none' }}>
               {r}
             </button>
           ))}
@@ -42,22 +49,47 @@ export default function IdeasPage({ data, initialResp }) {
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search ideas…" style={{ marginTop: '8px', fontSize: '13px', height: '34px' }} />
       </div>
 
-      <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-        {filtered.length === 0 ? (
-          <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px 20px', color: 'var(--text-3)', fontSize: '13px' }}>
-            No ideas yet. Tap "+ New idea" to capture one.
+      <div style={{ padding: '12px 16px' }}>
+        {showColumns ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px' }}>
+            {RESP_COLS.map(r => (
+              <div key={r}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '6px', borderBottom: '2px solid var(--border)' }}>
+                  <span className={`badge ${RESP_BADGE[r] || 'badge-other'}`}>{r}</span>
+                  <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px' }} onClick={() => { setForm(p => ({ ...p, responsibility: r })); setShowForm(true); }}>+ Add</button>
+                </div>
+                {grouped[r].length === 0 ? (
+                  <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 0' }}>No ideas yet.</div>
+                ) : grouped[r].map(idea => (
+                  <div key={idea.id} className="card" style={{ padding: '10px 12px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    <div style={{ fontWeight: '600', fontSize: '13px', lineHeight: '1.4' }}>{idea.title}</div>
+                    {idea.body && <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: '1.5' }}>{idea.body}</div>}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{idea.created_at ? new Date(idea.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
+                      <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => deleteIdea(idea.id)}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
           </div>
-        ) : filtered.map(idea => (
-          <div key={idea.id} className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span className={`badge ${RESP_BADGE[idea.responsibility] || 'badge-other'}`} style={{ alignSelf: 'flex-start' }}>{idea.responsibility}</span>
-            <div style={{ fontWeight: '600', fontSize: '13px', lineHeight: '1.4' }}>{idea.title}</div>
-            {idea.body && <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: '1.5', flex: 1 }}>{idea.body}</div>}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
-              <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{idea.created_at ? new Date(idea.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
-              <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => deleteIdea(idea.id)}>Delete</button>
-            </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
+            {filtered.length === 0 ? (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px 20px', color: 'var(--text-3)', fontSize: '13px' }}>No ideas match your search.</div>
+            ) : filtered.map(idea => (
+              <div key={idea.id} className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span className={`badge ${RESP_BADGE[idea.responsibility] || 'badge-other'}`} style={{ alignSelf: 'flex-start' }}>{idea.responsibility}</span>
+                <div style={{ fontWeight: '600', fontSize: '13px', lineHeight: '1.4' }}>{idea.title}</div>
+                {idea.body && <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: '1.5', flex: 1 }}>{idea.body}</div>}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{idea.created_at ? new Date(idea.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
+                  <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => deleteIdea(idea.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </div>
 
       {showForm && (
