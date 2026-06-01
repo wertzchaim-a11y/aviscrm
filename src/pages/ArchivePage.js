@@ -49,6 +49,7 @@ export default function ArchivePage({ data }) {
           </div>
         ) : completed.map(item => {
           const fac = facilities.find(f => f.id === item.facility_id);
+          const prog = calcProgress(item);
           const itemTasks = tasks.filter(t => t.item_id === item.id);
           const doneTasks = itemTasks.filter(t => t.done).length;
           return (
@@ -81,7 +82,7 @@ export default function ArchivePage({ data }) {
         <ItemSheet item={openItemObj} facility={openFacility}
           steps={steps} tasks={tasks} notes={notes} ideas={ideas}
           onClose={() => setOpenItem(null)}
-          onUpdateItem={updateItem} onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
+          onUpdateItem={updateItem} onDeleteItem={deleteItem} onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
           onAddTask={addTask} onUpdateTask={updateTask} onToggleTask={toggleTask} onDeleteTask={deleteTask}
           onAddNote={addNote} onDeleteNote={deleteNote}
           onGoIdeas={() => setOpenItem(null)}
