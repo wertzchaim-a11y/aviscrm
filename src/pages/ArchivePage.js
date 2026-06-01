@@ -27,16 +27,16 @@ export default function ArchivePage({ data }) {
     <div style={{ flex: 1, overflow: 'auto', padding: '0 0 80px' }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg)', borderBottom: '1px solid var(--border)', padding: '12px 16px 10px' }}>
         <h1 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '10px' }}>✅ Completed</h1>
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-          <select value={facFilter} onChange={e => setFacFilter(e.target.value)} style={{ fontSize: '11px', padding: '4px 22px 4px 8px', height: '28px' }}>
+        <div style={{ display: 'flex', gap: '5px', overflowX: 'auto' }}>
+          <select value={facFilter} onChange={e => setFacFilter(e.target.value)} style={{ fontSize: '11px', padding: '4px 20px 4px 7px', height: '26px', maxWidth: '110px', minWidth: 0 }}>
             <option value="">All facilities</option>
             {facilities.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
-          <select value={respFilter} onChange={e => setRespFilter(e.target.value)} style={{ fontSize: '11px', padding: '4px 22px 4px 8px', height: '28px' }}>
-            <option value="">All responsibilities</option>
+          <select value={respFilter} onChange={e => setRespFilter(e.target.value)} style={{ fontSize: '11px', padding: '4px 20px 4px 7px', height: '26px', maxWidth: '110px', minWidth: 0 }}>
+            <option value="">All resp.</option>
             <option>Marketing</option><option>Employee retention</option><option>Recruitment</option><option>Other</option>
           </select>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" style={{ fontSize: '11px', padding: '4px 8px', height: '28px', minWidth: '100px' }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" style={{ fontSize: '11px', padding: '4px 7px', height: '26px', maxWidth: '90px', minWidth: '70px' }} />
         </div>
       </div>
 
@@ -49,7 +49,6 @@ export default function ArchivePage({ data }) {
           </div>
         ) : completed.map(item => {
           const fac = facilities.find(f => f.id === item.facility_id);
-          const prog = calcProgress(item);
           const itemTasks = tasks.filter(t => t.item_id === item.id);
           const doneTasks = itemTasks.filter(t => t.done).length;
           return (
