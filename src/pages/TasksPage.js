@@ -34,14 +34,34 @@ export default function TasksPage({ data }) {
 
   const handleAddTask = async () => {
     if (!taskForm.name.trim()) return;
-    await addTask({ name: taskForm.name, due_date: taskForm.due_date || null, assigned_to: taskForm.assigned_to, priority: taskForm.priority, notes: taskForm.notes, item_id: taskForm.item_id || null, step_id: null, done: false });
+    await addTask({
+      name: taskForm.name.trim(),
+      due_date: taskForm.due_date || null,
+      assigned_to: taskForm.assigned_to || null,
+      priority: taskForm.priority || 'Medium',
+      notes: taskForm.notes || null,
+      item_id: taskForm.item_id || null,
+      step_id: null,
+      done: false,
+    });
     setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
     setShowAddTask(false);
   };
 
   const openItemObj = items.find(i => i.id === openItem);
   const openFacility = facilities.find(f => f.id === openItemObj?.facility_id);
-  const selectStyle = { fontSize: '11px', padding: '4px 20px 4px 7px', height: '26px', minWidth: 0, flexShrink: 0, maxWidth: '110px' };
+
+  const selectStyle = {
+    fontSize: '11px',
+    padding: '4px 20px 4px 7px',
+    height: '26px',
+    minWidth: 0,
+    flexShrink: 0,
+    maxWidth: '110px',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+  };
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '0 0 80px' }}>
@@ -50,6 +70,7 @@ export default function TasksPage({ data }) {
           <h1 style={{ fontSize: '18px', fontWeight: '600' }}>Tasks</h1>
           <button className="btn btn-primary btn-sm" onClick={() => setShowAddTask(true)}>+ Add task</button>
         </div>
+        {/* Compact filter row */}
         <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '2px', alignItems: 'center' }}>
           <select value={facFilter} onChange={e => setFacFilter(e.target.value)} style={selectStyle}>
             <option value="">All facilities</option>
@@ -57,7 +78,10 @@ export default function TasksPage({ data }) {
           </select>
           <select value={respFilter} onChange={e => setRespFilter(e.target.value)} style={selectStyle}>
             <option value="">All resp.</option>
-            <option>Marketing</option><option>Employee retention</option><option>Recruitment</option><option>Other</option>
+            <option>Marketing</option>
+            <option>Employee retention</option>
+            <option>Recruitment</option>
+            <option>Other</option>
           </select>
           <select value={personFilter} onChange={e => setPersonFilter(e.target.value)} style={selectStyle}>
             <option value="">All people</option>
@@ -65,9 +89,12 @@ export default function TasksPage({ data }) {
           </select>
           <select value={priFilter} onChange={e => setPriFilter(e.target.value)} style={selectStyle}>
             <option value="">All pri.</option>
-            <option>High</option><option>Medium</option><option>Low</option>
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
           </select>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" style={{ fontSize: '11px', padding: '4px 7px', height: '26px', minWidth: '70px', maxWidth: '90px', flexShrink: 1 }} />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…"
+            style={{ fontSize: '11px', padding: '4px 7px', height: '26px', minWidth: '70px', maxWidth: '90px', flexShrink: 1 }} />
         </div>
       </div>
 
@@ -79,9 +106,11 @@ export default function TasksPage({ data }) {
           const fac = facilities.find(f => f.id === item?.facility_id);
           const ov = isOverdue(t.due_date) && !t.done;
           return (
-            <div key={t.id} className="card" style={{ padding: '10px 12px', marginBottom: '7px', cursor: 'pointer' }} onClick={() => item && setOpenItem(t.item_id)}>
+            <div key={t.id} className="card" style={{ padding: '10px 12px', marginBottom: '7px', cursor: 'pointer' }}
+              onClick={() => item && setOpenItem(t.item_id)}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '5px' }}>
-                <div className={`cb ${t.done ? 'checked' : ''}`} style={{ marginTop: '1px' }} onClick={e => { e.stopPropagation(); data.toggleTask(t.id); }}>
+                <div className={`cb ${t.done ? 'checked' : ''}`} style={{ marginTop: '1px' }}
+                  onClick={e => { e.stopPropagation(); data.toggleTask(t.id); }}>
                   {t.done && <span style={{ color: '#fff', fontSize: '9px', fontWeight: '700' }}>✓</span>}
                 </div>
                 <span style={{ flex: 1, fontWeight: '600', fontSize: '13px', textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--text-3)' : 'var(--text)', lineHeight: '1.4' }}>{t.name}</span>
@@ -99,6 +128,7 @@ export default function TasksPage({ data }) {
         })}
       </div>
 
+      {/* Add task modal */}
       {showAddTask && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setShowAddTask(false)}>
           <div className="sheet-center" style={{ padding: '20px' }}>
@@ -107,21 +137,38 @@ export default function TasksPage({ data }) {
               <button className="btn-icon" onClick={() => setShowAddTask(false)} style={{ fontSize: '18px' }}>×</button>
             </div>
             <div className="form-row">
-              <div className="form-group full"><label>Task name</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="What needs to be done?" /></div>
-              <div className="form-group"><label>Due date</label><input type="date" value={taskForm.due_date} onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} /></div>
-              <div className="form-group"><label>Assigned to</label><input value={taskForm.assigned_to} onChange={e => setTaskForm(p => ({ ...p, assigned_to: e.target.value }))} placeholder="Name" /></div>
-              <div className="form-group"><label>Priority</label>
+              <div className="form-group full">
+                <label>Task name</label>
+                <input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="What needs to be done?" />
+              </div>
+              <div className="form-group">
+                <label>Due date</label>
+                <input type="date" value={taskForm.due_date} onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label>Assigned to</label>
+                <input value={taskForm.assigned_to} onChange={e => setTaskForm(p => ({ ...p, assigned_to: e.target.value }))} placeholder="Name" />
+              </div>
+              <div className="form-group">
+                <label>Priority</label>
                 <select value={taskForm.priority} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value }))}>
                   <option>High</option><option>Medium</option><option>Low</option>
                 </select>
               </div>
-              <div className="form-group full"><label>Link to project (optional)</label>
+              <div className="form-group">
+                <label>Link to project (optional)</label>
                 <select value={taskForm.item_id} onChange={e => setTaskForm(p => ({ ...p, item_id: e.target.value }))}>
                   <option value="">— Standalone task —</option>
-                  {items.map(i => { const fac = facilities.find(f => f.id === i.facility_id); return <option key={i.id} value={i.id}>{fac ? fac.name + ' · ' : ''}{i.name}</option>; })}
+                  {items.map(i => {
+                    const fac = facilities.find(f => f.id === i.facility_id);
+                    return <option key={i.id} value={i.id}>{fac ? fac.name + ' · ' : ''}{i.name}</option>;
+                  })}
                 </select>
               </div>
-              <div className="form-group full"><label>Notes</label><textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} placeholder="Any extra details…" /></div>
+              <div className="form-group full">
+                <label>Notes</label>
+                <textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} placeholder="Any extra details…" />
+              </div>
             </div>
             <div className="form-actions">
               <button className="btn btn-sm" onClick={() => setShowAddTask(false)}>Cancel</button>
@@ -135,7 +182,7 @@ export default function TasksPage({ data }) {
         <ItemSheet item={openItemObj} facility={openFacility}
           steps={steps} tasks={tasks} notes={notes} ideas={ideas}
           onClose={() => setOpenItem(null)}
-          onUpdateItem={updateItem} onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
+          onUpdateItem={updateItem} onDeleteItem={deleteItem} onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
           onAddTask={addTask} onUpdateTask={updateTask} onToggleTask={toggleTask} onDeleteTask={deleteTask}
           onAddNote={addNote} onDeleteNote={deleteNote}
           onGoIdeas={() => setOpenItem(null)}
