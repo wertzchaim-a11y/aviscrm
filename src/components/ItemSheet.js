@@ -112,7 +112,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
             <div style={{ padding: '12px 16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button className="btn btn-sm" onClick={() => { setEditForm({ name: activeTask.name, due_date: activeTask.due_date, assigned_to: activeTask.assigned_to, priority: activeTask.priority, step_id: activeTask.step_id, notes: activeTask.notes }); setEditingTask(true); }}>Edit</button>
               <button className="btn btn-sm btn-primary" onClick={async () => { await onToggleTask(activeTask.id); setActiveTask(p => ({ ...p, done: !p.done })); }}>{activeTask.done ? 'Mark open' : 'Mark done'}</button>
-              <button className="btn btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red-light)', marginLeft: 'auto' }} onClick={async () => { if (window.confirm('Delete this task?')) { await onDeleteTask(activeTask.id); setActiveTask(null); } }}>Delete task</button>
+              <button className="btn btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red-light)', marginLeft: 'auto' }} onClick={async () => { await onDeleteTask(activeTask.id); setActiveTask(null); }}>Delete task</button>
             </div>
           )}
         </div>
@@ -257,7 +257,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
             {item.completed ? '↩ Reopen' : '✓ Mark complete'}
           </button>
           <button className="btn btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red-light)' }}
-            onClick={() => { if (window.confirm('Delete this project and all its tasks? This cannot be undone.')) handleDeleteItem(); }}>
+            onClick={handleDeleteItem}>
             Delete
           </button>
         </div>
