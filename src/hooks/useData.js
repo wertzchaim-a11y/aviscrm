@@ -14,9 +14,9 @@ export function useData() {
     setLoading(true);
     const [f, i, s, t, n, id] = await Promise.all([
       supabase.from('facilities').select('*').order('position'),
-      supabase.from('items').select('*').order('position').order('created_at'),
+      supabase.from('items').select('*').order('created_at'),
       supabase.from('steps').select('*').order('position'),
-      supabase.from('tasks').select('*').order('position').order('created_at'),
+      supabase.from('tasks').select('*').order('created_at'),
       supabase.from('notes').select('*').order('created_at'),
       supabase.from('ideas').select('*').order('created_at', { ascending: false }),
     ]);
@@ -33,8 +33,8 @@ export function useData() {
 
   // ITEMS
   const addItem = async (data) => {
-    const pos = items.filter(i => i.facility_id === data.facility_id && i.responsibility === data.responsibility).length;
-    const { data: row } = await supabase.from('items').insert({ ...data, position: pos }).select().single();
+    const { data: row, error } = await supabase.from('items').insert(data).select().single();
+    if (error) console.error('addItem error:', error);
     if (row) { setItems(prev => [...prev, row]); return row; }
   };
   const reorderItems = async (facId, resp, fromIdx, toIdx) => {
@@ -45,7 +45,7 @@ export function useData() {
     reordered.splice(toIdx, 0, moved);
     const updated = reordered.map((item, idx) => ({ ...item, position: idx }));
     setItems([...others, ...updated]);
-    await Promise.all(updated.map(item => supabase.from('items').update({ position: item.position }).eq('id', item.id)));
+    try { await Promise.all(updated.map(item => supabase.from('items').update({ position: item.position }).eq('id', item.id))); } catch(e) {}
   };
   const updateItem = async (id, data) => {
     const { data: row } = await supabase.from('items').update(data).eq('id', id).select().single();
@@ -61,8 +61,8 @@ export function useData() {
 
   // STEPS
   const addStep = async (data) => {
-    const pos = steps.filter(s => s.item_id === data.item_id).length;
-    const { data: row } = await supabase.from('steps').insert({ ...data, position: pos }).select().single();
+    const { data: row, error } = await supabase.from('steps').insert({ item_id: data.item_id, name: data.name, done: false }).select().single();
+    if (error) console.error('addStep error:', error);
     if (row) setSteps(prev => [...prev, row]);
   };
   const toggleStep = async (id) => {
@@ -79,7 +79,6 @@ export function useData() {
 
   // TASKS
   const addTask = async (data) => {
-    const pos = tasks.filter(t => t.item_id === data.item_id).length;
     const cleanData = {
       name: data.name,
       due_date: data.due_date || null,
@@ -89,7 +88,6 @@ export function useData() {
       item_id: data.item_id || null,
       step_id: data.step_id || null,
       done: false,
-      position: pos,
     };
     const { data: row, error } = await supabase.from('tasks').insert(cleanData).select().single();
     if (error) console.error('addTask error:', error);
@@ -105,7 +103,7 @@ export function useData() {
       const ids = new Set(updated.map(t => t.id));
       return [...prev.filter(t => !ids.has(t.id)), ...updated];
     });
-    await Promise.all(updated.map(t => supabase.from('tasks').update({ position: t.position }).eq('id', t.id)));
+    try { await Promise.all(updated.map(t => supabase.from('tasks').update({ position: t.position }).eq('id', t.id))); } catch(e) {}
   };
   const updateTask = async (id, data) => {
     const { data: row } = await supabase.from('tasks').update(data).eq('id', id).select().single();
