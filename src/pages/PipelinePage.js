@@ -45,7 +45,7 @@ export default function PipelinePage({ data, onGoIdeas }) {
       assigned_to: addForm.assigned_to || null, progress: 0, manual_progress: false, completed: false,
     });
     if (newItem) {
-      for (let i = 0; i < quickSteps.length; i++) await addStep({ item_id: newItem.id, name: quickSteps[i], position: i });
+      for (let i = 0; i < quickSteps.length; i++) await addStep({ item_id: newItem.id, name: quickSteps[i] });
       for (const t of quickTasks) await addTask({ item_id: newItem.id, name: t.name, due_date: t.due_date || null, assigned_to: t.assigned_to || null, priority: t.priority, notes: '', step_id: null, done: false });
       for (const n of quickNotes) await addNote({ item_id: newItem.id, text: n });
       for (const id of quickIdeas) await addIdea({ title: id.title, responsibility: addForm.responsibility, body: id.body });
