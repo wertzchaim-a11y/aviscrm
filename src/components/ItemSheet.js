@@ -9,6 +9,8 @@ function isOverdue(d) { if (!d) return false; return d < new Date().toISOString(
 export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, onClose, onUpdateItem, onDeleteItem, onAddStep, onToggleStep, onDeleteStep, onAddTask, onUpdateTask, onToggleTask, onDeleteTask, onAddNote, onDeleteNote, onGoIdeas, calcProgress }) {
   const [activeTask, setActiveTask] = useState(null);
   const [editingTask, setEditingTask] = useState(false);
+  const [editingItem, setEditingItem] = useState(false);
+  const [itemEditForm, setItemEditForm] = useState({});
   const [showStepForm, setShowStepForm] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [showNoteForm, setShowNoteForm] = useState(false);
@@ -18,6 +20,33 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
   const [editForm, setEditForm] = useState({});
   const [manualVal, setManualVal] = useState(item.progress);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const RESP_COLS = ['Marketing', 'Employee retention', 'Recruitment', 'Other'];
+
+  const startEditItem = () => {
+    setItemEditForm({
+      name: item.name,
+      type: item.type,
+      facility_id: item.facility_id,
+      responsibility: item.responsibility,
+      due_date: item.due_date || '',
+      assigned_to: item.assigned_to || '',
+    });
+    setEditingItem(true);
+  };
+
+  const saveEditItem = async () => {
+    if (!itemEditForm.name.trim()) return;
+    await onUpdateItem(item.id, {
+      name: itemEditForm.name.trim(),
+      type: itemEditForm.type,
+      facility_id: itemEditForm.facility_id,
+      responsibility: itemEditForm.responsibility,
+      due_date: itemEditForm.due_date || null,
+      assigned_to: itemEditForm.assigned_to || null,
+    });
+    setEditingItem(false);
+  };
 
   const progress = calcProgress(item);
   const itemSteps = steps.filter(s => s.item_id === item.id);
@@ -126,17 +155,46 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
         <div className="sheet-handle" />
         {/* Header */}
         <div style={{ padding: '14px 16px 10px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', lineHeight: '1.3', flex: 1, paddingRight: '12px' }}>{item.name}</h2>
-            <button className="btn-icon" onClick={onClose} style={{ fontSize: '18px' }}>×</button>
-          </div>
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-            <span className="badge" style={{ background: 'var(--bg)', color: 'var(--text-2)' }}>{facility?.name}</span>
-            <span className={`badge ${RESP_BADGE[item.responsibility]}`}>{item.responsibility}</span>
-            <span className={`badge ${item.type === 'project' ? 'badge-project' : 'badge-event'}`}>{item.type}</span>
-            {item.due_date && <span className="badge" style={{ background: isOverdue(item.due_date) ? 'var(--red-light)' : 'var(--gray-light)', color: isOverdue(item.due_date) ? 'var(--red)' : 'var(--gray)' }}>{isOverdue(item.due_date) ? 'Overdue: ' : 'Due: '}{fmt(item.due_date)}</span>}
-            {item.assigned_to && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>{item.assigned_to}</span>}
-          </div>
+          {editingItem ? (
+            <div>
+              <div className="form-row" style={{ marginBottom: '10px' }}>
+                <div className="form-group full"><label>Name</label><input value={itemEditForm.name} onChange={e => setItemEditForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
+                <div className="form-group"><label>Type</label>
+                  <select value={itemEditForm.type} onChange={e => setItemEditForm(p => ({ ...p, type: e.target.value }))}>
+                    <option value="project">Project</option><option value="event">Event</option>
+                  </select>
+                </div>
+                <div className="form-group"><label>Responsibility</label>
+                  <select value={itemEditForm.responsibility} onChange={e => setItemEditForm(p => ({ ...p, responsibility: e.target.value }))}>
+                    {RESP_COLS.map(r => <option key={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div className="form-group"><label>Due date</label><input type="date" value={itemEditForm.due_date} onChange={e => setItemEditForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+                <div className="form-group"><label>Assigned to</label><input value={itemEditForm.assigned_to} onChange={e => setItemEditForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
+              </div>
+              <div className="form-actions">
+                <button className="btn btn-sm" onClick={() => setEditingItem(false)}>Cancel</button>
+                <button className="btn btn-sm btn-primary" onClick={saveEditItem}>Save changes</button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: '600', lineHeight: '1.3', flex: 1, paddingRight: '12px' }}>{item.name}</h2>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button className="btn btn-sm" style={{ fontSize: '11px', padding: '3px 10px' }} onClick={startEditItem}>Edit</button>
+                  <button className="btn-icon" onClick={onClose} style={{ fontSize: '18px' }}>×</button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <span className="badge" style={{ background: 'var(--bg)', color: 'var(--text-2)' }}>{facility?.name}</span>
+                <span className={`badge ${RESP_BADGE[item.responsibility]}`}>{item.responsibility}</span>
+                <span className={`badge ${item.type === 'project' ? 'badge-project' : 'badge-event'}`}>{item.type}</span>
+                {item.due_date && <span className="badge" style={{ background: isOverdue(item.due_date) ? 'var(--red-light)' : 'var(--gray-light)', color: isOverdue(item.due_date) ? 'var(--red)' : 'var(--gray)' }}>{isOverdue(item.due_date) ? 'Overdue: ' : 'Due: '}{fmt(item.due_date)}</span>}
+                {item.assigned_to && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>{item.assigned_to}</span>}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Progress */}
