@@ -15,7 +15,7 @@ export function useData() {
     const [f, i, s, t, n, id] = await Promise.all([
       supabase.from('facilities').select('*').order('position'),
       supabase.from('items').select('*').order('created_at'),
-      supabase.from('steps').select('*').order('position'),
+      supabase.from('steps').select('*').order('created_at'),
       supabase.from('tasks').select('*').order('created_at'),
       supabase.from('notes').select('*').order('created_at'),
       supabase.from('ideas').select('*').order('created_at', { ascending: false }),
@@ -30,6 +30,11 @@ export function useData() {
   }, []);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
+
+  const updateFacility = async (id, data) => {
+    const { data: row } = await supabase.from('facilities').update(data).eq('id', id).select().single();
+    if (row) setFacilities(prev => prev.map(f => f.id === id ? row : f));
+  };
 
   // ITEMS
   const addItem = async (data) => {
@@ -155,6 +160,7 @@ export function useData() {
 
   return {
     facilities, items, steps, tasks, notes, ideas, loading, fetchAll,
+    updateFacility,
     addItem, updateItem, deleteItem, reorderItems,
     addStep, toggleStep, deleteStep,
     addTask, updateTask, toggleTask, deleteTask, reorderTasks,
