@@ -10,14 +10,13 @@ function isOverdue(d) { return d && d < new Date().toISOString().slice(0, 10); }
 const EMPTY_FORM = { name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' };
 
 export default function PipelinePage({ data, onGoIdeas }) {
-  const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, reorderItems, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, deleteIdea, calcProgress } = data;
+  const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, reorderItems, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, deleteIdea, calcProgress, updateFacility } = data;
+
   const [openItem, setOpenItem] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState(EMPTY_FORM);
   const [newIdeaCol, setNewIdeaCol] = useState(null);
   const [newIdeaForm, setNewIdeaForm] = useState({ title: '', body: '' });
-
-  // Quick-add lists for steps, tasks, notes, ideas during creation
   const [quickSteps, setQuickSteps] = useState([]);
   const [quickTasks, setQuickTasks] = useState([]);
   const [quickNotes, setQuickNotes] = useState([]);
@@ -26,7 +25,22 @@ export default function PipelinePage({ data, onGoIdeas }) {
   const [taskInput, setTaskInput] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium' });
   const [noteInput, setNoteInput] = useState('');
   const [ideaInput, setIdeaInput] = useState({ title: '', body: '' });
-  const [activeTab, setActiveTab] = useState('details'); // details | steps | tasks | notes | ideas
+  const [activeTab, setActiveTab] = useState('details');
+  const [summary, setSummary] = useState({});
+  const [editingSummary, setEditingSummary] = useState(null);
+
+  React.useEffect(() => {
+    if (facilities.length) {
+      const s = {};
+      facilities.forEach(f => { if (f.summary) s[f.id] = f.summary; });
+      setSummary(s);
+    }
+  }, [facilities]);
+
+  const saveSummary = async (facId) => {
+    await updateFacility(facId, { summary: summary[facId] || '' });
+    setEditingSummary(null);
+  };
 
   const resetForm = () => {
     setAddForm(EMPTY_FORM);
@@ -65,7 +79,7 @@ export default function PipelinePage({ data, onGoIdeas }) {
 
   const tabStyle = (t) => ({
     fontSize: '12px', padding: '5px 12px', borderRadius: '20px', fontFamily: 'var(--font)',
-    fontWeight: activeTab === t ? '600' : '400', cursor: 'pointer', border: 'none',
+    fontWeight: activeTab === t ? '600' : '400', cursor: 'pointer',
     background: activeTab === t ? 'var(--text)' : 'var(--surface)',
     color: activeTab === t ? '#fff' : 'var(--text-2)',
     border: activeTab !== t ? '1px solid var(--border)' : 'none',
@@ -80,12 +94,44 @@ export default function PipelinePage({ data, onGoIdeas }) {
 
       {facilities.map(fac => (
         <div key={fac.id} style={{ padding: '14px 16px 0' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', paddingBottom: '8px', borderBottom: `2px solid ${fac.color}30` }}>
+          {/* Facility header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', paddingBottom: '8px', borderBottom: `2px solid ${fac.color}30` }}>
             <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: fac.color, flexShrink: 0 }} />
             <span style={{ fontWeight: '600', fontSize: '15px', flex: 1 }}>{fac.name}</span>
             <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{items.filter(i => i.facility_id === fac.id).length} items</span>
           </div>
 
+          {/* Summary */}
+          <div style={{ marginBottom: '12px', background: '#FFFEF0', border: '1px solid #E8E4A0', borderRadius: 'var(--radius-lg)', padding: '10px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: editingSummary === fac.id ? '8px' : (summary[fac.id] ? '4px' : '0') }}>
+              <span style={{ fontSize: '11px', fontWeight: '600', color: '#7A6E00' }}>📋 Summary</span>
+              <button style={{ fontSize: '11px', color: '#7A6E00', background: 'transparent', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={() => setEditingSummary(editingSummary === fac.id ? null : fac.id)}>
+                {editingSummary === fac.id ? 'Cancel' : (summary[fac.id] ? 'Edit' : '+ Add')}
+              </button>
+            </div>
+            {editingSummary === fac.id ? (
+              <div>
+                <textarea
+                  autoFocus
+                  value={summary[fac.id] || ''}
+                  onChange={e => setSummary(p => ({ ...p, [fac.id]: e.target.value }))}
+                  placeholder="Write a summary for this facility..."
+                  style={{ width: '100%', fontSize: '12px', padding: '7px 9px', border: '1px solid #C8C070', borderRadius: 'var(--radius)', background: '#FFFFF5', color: 'var(--text)', resize: 'vertical', minHeight: '70px', lineHeight: '1.6', fontFamily: 'var(--font)' }}
+                />
+                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', marginTop: '6px' }}>
+                  <button className="btn btn-sm" onClick={() => setEditingSummary(null)}>Cancel</button>
+                  <button className="btn btn-sm btn-primary" onClick={() => saveSummary(fac.id)}>Save</button>
+                </div>
+              </div>
+            ) : summary[fac.id] ? (
+              <div style={{ fontSize: '12px', color: '#5A5000', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{summary[fac.id]}</div>
+            ) : (
+              <div style={{ fontSize: '11px', color: '#B0A800', fontStyle: 'italic' }}>No summary yet. Tap "+ Add" to write one.</div>
+            )}
+          </div>
+
+          {/* 5-column grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) 200px', gap: '10px', marginBottom: '20px', overflowX: 'auto' }}>
             {RESP_COLS.map(resp => {
               const facItems = items.filter(i => i.facility_id === fac.id && i.responsibility === resp && !i.completed);
@@ -103,28 +149,30 @@ export default function PipelinePage({ data, onGoIdeas }) {
                     return (
                       <div key={item.id}
                         draggable
-                        onDragStart={e => { e.dataTransfer.setData('text/plain', idx); e.currentTarget.style.opacity = '0.4'; }}
-                        onDragEnd={e => { e.currentTarget.style.opacity = '1'; }}
-                        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--green)'; e.currentTarget.style.borderRadius = 'var(--radius-md)'; }}
-                        onDragLeave={e => { e.currentTarget.style.borderColor = 'transparent'; }}
+                        onDragStart={e => { e.dataTransfer.setData('text/plain', String(idx)); e.currentTarget.style.opacity = '0.4'; }}
+                        onDragEnd={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.borderColor = ''; }}
+                        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--green)'; }}
+                        onDragLeave={e => { e.currentTarget.style.borderColor = ''; }}
                         onDrop={e => {
                           e.preventDefault();
-                          e.currentTarget.style.borderColor = 'transparent';
+                          e.currentTarget.style.borderColor = '';
                           const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
                           if (fromIdx !== idx) reorderItems(fac.id, resp, fromIdx, idx);
                         }}
-                        style={{ marginBottom: '7px', border: '2px solid transparent', borderRadius: 'var(--radius-md)', transition: 'border-color 0.15s', cursor: 'grab' }}>
-                        <div className="card" style={{ padding: '9px 10px', cursor: 'pointer' }} onClick={() => setOpenItem(item.id)}>
-                          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '4px', marginBottom: '4px' }}>
-                            <span style={{ fontSize: '10px', color: 'var(--text-3)', marginRight: '2px', userSelect: 'none' }}>⠿</span>
-                            <span style={{ fontWeight: '600', fontSize: '12px', lineHeight: '1.3', flex: 1 }}>{item.name}</span>
-                            <span className={`badge ${item.type === 'project' ? 'badge-project' : 'badge-event'}`} style={{ fontSize: '9px', padding: '1px 5px' }}>{item.type}</span>
+                        className="card"
+                        style={{ padding: '9px 10px', marginBottom: '7px', cursor: 'grab', transition: 'border-color 0.15s, opacity 0.15s' }}
+                        onClick={() => setOpenItem(item.id)}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '4px', marginBottom: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', flex: 1 }}>
+                            <span style={{ color: 'var(--text-3)', fontSize: '11px', marginTop: '1px', flexShrink: 0 }}>⠿</span>
+                            <span style={{ fontWeight: '600', fontSize: '12px', lineHeight: '1.3' }}>{item.name}</span>
                           </div>
-                          {item.due_date ? <div style={{ fontSize: '10px', color: overdue ? 'var(--red)' : 'var(--text-3)', marginBottom: '5px' }}>{overdue ? 'Overdue: ' : 'Due: '}{fmt(item.due_date)}</div>
-                            : <div style={{ fontSize: '10px', color: 'var(--text-3)', marginBottom: '5px' }}>No due date</div>}
-                          <div className="prog-bg"><div className="prog-fill" style={{ width: `${prog}%` }} /></div>
-                          <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '3px' }}>{prog}%{item.assigned_to ? ' · ' + item.assigned_to : ''}</div>
+                          <span className={`badge ${item.type === 'project' ? 'badge-project' : 'badge-event'}`} style={{ fontSize: '9px', padding: '1px 5px', flexShrink: 0 }}>{item.type}</span>
                         </div>
+                        {item.due_date ? <div style={{ fontSize: '10px', color: overdue ? 'var(--red)' : 'var(--text-3)', marginBottom: '5px' }}>{overdue ? 'Overdue: ' : 'Due: '}{fmt(item.due_date)}</div>
+                          : <div style={{ fontSize: '10px', color: 'var(--text-3)', marginBottom: '5px' }}>No due date</div>}
+                        <div className="prog-bg"><div className="prog-fill" style={{ width: `${prog}%` }} /></div>
+                        <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '3px' }}>{prog}%{item.assigned_to ? ' · ' + item.assigned_to : ''}</div>
                       </div>
                     );
                   })}
@@ -169,7 +217,7 @@ export default function PipelinePage({ data, onGoIdeas }) {
         </div>
       ))}
 
-      {/* ADD ITEM MODAL — tabbed */}
+      {/* ADD ITEM MODAL */}
       {showAddForm && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && resetForm()}>
           <div className="sheet-center" style={{ padding: '20px', maxHeight: '85vh', overflowY: 'auto' }}>
@@ -177,9 +225,7 @@ export default function PipelinePage({ data, onGoIdeas }) {
               <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Add project or event</h2>
               <button className="btn-icon" onClick={resetForm} style={{ fontSize: '18px' }}>×</button>
             </div>
-
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', marginBottom: '16px', paddingBottom: '2px' }}>
+            <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', marginBottom: '16px' }}>
               {[['details','Details'],['steps','Steps'],['tasks','Tasks'],['notes','Notes'],['ideas','Ideas']].map(([t, l]) => (
                 <button key={t} onClick={() => setActiveTab(t)} style={tabStyle(t)}>
                   {l}{t === 'steps' && quickSteps.length > 0 ? ` (${quickSteps.length})` : ''}
@@ -190,7 +236,6 @@ export default function PipelinePage({ data, onGoIdeas }) {
               ))}
             </div>
 
-            {/* DETAILS TAB */}
             {activeTab === 'details' && (
               <div className="form-row">
                 <div className="form-group full"><label>Name *</label><input value={addForm.name} onChange={e => setAddForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="Project or event name" /></div>
@@ -215,7 +260,6 @@ export default function PipelinePage({ data, onGoIdeas }) {
               </div>
             )}
 
-            {/* STEPS TAB */}
             {activeTab === 'steps' && (
               <div>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
@@ -234,7 +278,6 @@ export default function PipelinePage({ data, onGoIdeas }) {
               </div>
             )}
 
-            {/* TASKS TAB */}
             {activeTab === 'tasks' && (
               <div>
                 <div className="form-row" style={{ marginBottom: '10px' }}>
@@ -261,13 +304,10 @@ export default function PipelinePage({ data, onGoIdeas }) {
               </div>
             )}
 
-            {/* NOTES TAB */}
             {activeTab === 'notes' && (
               <div>
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                  <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} placeholder="Write a note…" style={{ minHeight: '80px' }} autoFocus />
-                </div>
-                <button className="btn btn-sm btn-primary" style={{ marginBottom: '12px' }} onClick={() => { if (noteInput.trim()) { setQuickNotes(p => [...p, noteInput.trim()]); setNoteInput(''); }}}>Add note</button>
+                <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} placeholder="Write a note…" style={{ minHeight: '80px', width: '100%' }} autoFocus />
+                <button className="btn btn-sm btn-primary" style={{ marginTop: '8px', marginBottom: '12px' }} onClick={() => { if (noteInput.trim()) { setQuickNotes(p => [...p, noteInput.trim()]); setNoteInput(''); }}}>Add note</button>
                 {quickNotes.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No notes yet.</div> :
                   quickNotes.map((n, i) => (
                     <div key={i} style={{ display: 'flex', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
@@ -280,7 +320,6 @@ export default function PipelinePage({ data, onGoIdeas }) {
               </div>
             )}
 
-            {/* IDEAS TAB */}
             {activeTab === 'ideas' && (
               <div>
                 <div className="form-row" style={{ marginBottom: '10px' }}>
@@ -308,7 +347,7 @@ export default function PipelinePage({ data, onGoIdeas }) {
         </div>
       )}
 
-      {/* Add idea sheet */}
+      {/* ADD IDEA SHEET */}
       {newIdeaCol && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setNewIdeaCol(null)}>
           <div className="sheet-center" style={{ padding: '20px' }}>
