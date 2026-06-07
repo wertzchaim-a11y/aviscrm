@@ -43,12 +43,12 @@ export default function IdeasPage({ data, initialResp, onConvertIdea }) {
     setEditingId(null);
   };
 
-  const IdeaCard = ({ idea }) => {
+  const renderIdeaCard = (idea) => {
     if (editingId === idea.id) {
       return (
-        <div className="card" style={{ padding: '12px', marginBottom: '8px' }}>
+        <div key={idea.id} className="card" style={{ padding: '12px', marginBottom: '8px' }}>
           <div className="form-row" style={{ gap: '8px' }}>
-            <div className="form-group full"><label>Title</label><input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} autoFocus /></div>
+            <div className="form-group full"><label>Title</label><input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value })) } /></div>
             <div className="form-group full"><label>Responsibility</label>
               <select value={editForm.responsibility} onChange={e => setEditForm(p => ({ ...p, responsibility: e.target.value }))}>
                 {RESP_COLS.map(r => <option key={r}>{r}</option>)}
@@ -64,7 +64,7 @@ export default function IdeasPage({ data, initialResp, onConvertIdea }) {
       );
     }
     return (
-      <div className="card" style={{ padding: '10px 12px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+      <div key={idea.id} className="card" style={{ padding: '10px 12px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
         <div style={{ fontWeight: '600', fontSize: '13px', lineHeight: '1.4' }}>{idea.title}</div>
         {idea.body && <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: '1.5' }}>{idea.body}</div>}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
@@ -109,7 +109,7 @@ export default function IdeasPage({ data, initialResp, onConvertIdea }) {
                 </div>
                 {grouped[r].length === 0
                   ? <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 0' }}>No ideas yet.</div>
-                  : grouped[r].map(idea => <IdeaCard key={idea.id} idea={idea} />)
+                  : grouped[r].map(idea => renderIdeaCard(idea))
                 }
               </div>
             ))}
@@ -121,7 +121,7 @@ export default function IdeasPage({ data, initialResp, onConvertIdea }) {
               : filtered.map(idea => (
                 <div key={idea.id}>
                   {!showColumns && <span className={`badge ${RESP_BADGE[idea.responsibility] || 'badge-other'}`} style={{ marginBottom: '6px', display: 'inline-block' }}>{idea.responsibility}</span>}
-                  <IdeaCard idea={idea} />
+                  {renderIdeaCard(idea)}
                 </div>
               ))
             }
