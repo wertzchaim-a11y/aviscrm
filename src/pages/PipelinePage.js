@@ -9,7 +9,7 @@ function isOverdue(d) { return d && d < new Date().toISOString().slice(0, 10); }
 
 const EMPTY_FORM = { name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' };
 
-export default function PipelinePage({ data, onGoIdeas }) {
+export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertIdeaDone }) {
   const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, reorderItems, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, deleteIdea, calcProgress, updateFacility } = data;
 
   const [openItem, setOpenItem] = useState(null);
@@ -36,6 +36,23 @@ export default function PipelinePage({ data, onGoIdeas }) {
       setSummary(s);
     }
   }, [facilities]);
+
+  // Auto-open add form when converting an idea to a project
+  React.useEffect(() => {
+    if (convertIdea) {
+      setAddForm(p => ({
+        ...p,
+        name: convertIdea.title,
+        responsibility: convertIdea.responsibility,
+        type: 'project',
+      }));
+      setNoteInput(convertIdea.body || '');
+      setQuickNotes(convertIdea.body ? [convertIdea.body] : []);
+      setActiveTab('details');
+      setShowAddForm(true);
+      onConvertIdeaDone && onConvertIdeaDone();
+    }
+  }, [convertIdea]);
 
   const saveSummary = async (facId) => {
     await updateFacility(facId, { summary: summary[facId] || '' });
