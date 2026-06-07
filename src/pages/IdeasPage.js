@@ -9,7 +9,7 @@ export default function IdeasPage({ data, initialResp, onConvertIdea }) {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: '', responsibility: initialResp || 'Marketing', body: '' });
-  const [editingId, setEditingId] = useState(null);
+  const [editingIdea, setEditingIdea] = useState(null); // the full idea object being edited
   const [editForm, setEditForm] = useState({ title: '', responsibility: 'Marketing', body: '' });
 
   const filtered = ideas.filter(i => {
@@ -32,52 +32,26 @@ export default function IdeasPage({ data, initialResp, onConvertIdea }) {
     setShowForm(false);
   };
 
-  const startEdit = (idea) => {
-    setEditingId(idea.id);
-    setEditForm({ title: idea.title, responsibility: idea.responsibility, body: idea.body || '' });
-  };
-
   const handleSaveEdit = async () => {
     if (!editForm.title.trim()) return;
-    await updateIdea(editingId, editForm);
-    setEditingId(null);
+    await updateIdea(editingIdea.id, editForm);
+    setEditingIdea(null);
   };
 
-  const renderIdeaCard = (idea) => {
-    if (editingId === idea.id) {
-      return (
-        <div key={idea.id} className="card" style={{ padding: '12px', marginBottom: '8px' }}>
-          <div className="form-row" style={{ gap: '8px' }}>
-            <div className="form-group full"><label>Title</label><input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value })) } /></div>
-            <div className="form-group full"><label>Responsibility</label>
-              <select value={editForm.responsibility} onChange={e => setEditForm(p => ({ ...p, responsibility: e.target.value }))}>
-                {RESP_COLS.map(r => <option key={r}>{r}</option>)}
-              </select>
-            </div>
-            <div className="form-group full"><label>Details</label><textarea value={editForm.body} onChange={e => setEditForm(p => ({ ...p, body: e.target.value }))} /></div>
-          </div>
-          <div className="form-actions">
-            <button className="btn btn-sm" onClick={() => setEditingId(null)}>Cancel</button>
-            <button className="btn btn-sm btn-primary" onClick={handleSaveEdit}>Save</button>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div key={idea.id} className="card" style={{ padding: '10px 12px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-        <div style={{ fontWeight: '600', fontSize: '13px', lineHeight: '1.4' }}>{idea.title}</div>
-        {idea.body && <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: '1.5' }}>{idea.body}</div>}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
-          <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{idea.created_at ? new Date(idea.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px' }} onClick={() => startEdit(idea)}>Edit</button>
-            {onConvertIdea && <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--green)', borderColor: 'var(--green-light)' }} onClick={() => onConvertIdea(idea)}>→ Project</button>}
-            <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => deleteIdea(idea.id)}>Delete</button>
-          </div>
+  const ideaCard = (idea) => (
+    <div key={idea.id} className="card" style={{ padding: '10px 12px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+      <div style={{ fontWeight: '600', fontSize: '13px', lineHeight: '1.4' }}>{idea.title}</div>
+      {idea.body && <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: '1.5' }}>{idea.body}</div>}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
+        <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{idea.created_at ? new Date(idea.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px' }} onClick={() => { setEditForm({ title: idea.title, responsibility: idea.responsibility, body: idea.body || '' }); setEditingIdea(idea); }}>Edit</button>
+          {onConvertIdea && <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--green)', borderColor: 'var(--green-light)' }} onClick={() => onConvertIdea(idea)}>→ Project</button>}
+          <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => deleteIdea(idea.id)}>Delete</button>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '0 0 80px' }}>
@@ -109,7 +83,7 @@ export default function IdeasPage({ data, initialResp, onConvertIdea }) {
                 </div>
                 {grouped[r].length === 0
                   ? <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 0' }}>No ideas yet.</div>
-                  : grouped[r].map(idea => renderIdeaCard(idea))
+                  : grouped[r].map(idea => ideaCard(idea))
                 }
               </div>
             ))}
@@ -121,7 +95,7 @@ export default function IdeasPage({ data, initialResp, onConvertIdea }) {
               : filtered.map(idea => (
                 <div key={idea.id}>
                   {!showColumns && <span className={`badge ${RESP_BADGE[idea.responsibility] || 'badge-other'}`} style={{ marginBottom: '6px', display: 'inline-block' }}>{idea.responsibility}</span>}
-                  {renderIdeaCard(idea)}
+                  {ideaCard(idea)}
                 </div>
               ))
             }
@@ -129,6 +103,7 @@ export default function IdeasPage({ data, initialResp, onConvertIdea }) {
         )}
       </div>
 
+      {/* New idea modal */}
       {showForm && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div className="sheet-center" style={{ padding: '20px' }}>
@@ -148,6 +123,31 @@ export default function IdeasPage({ data, initialResp, onConvertIdea }) {
             <div className="form-actions">
               <button className="btn btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
               <button className="btn btn-sm btn-primary" onClick={handleSave}>Save idea</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit idea modal — separate overlay, no focus jumping */}
+      {editingIdea && (
+        <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setEditingIdea(null)}>
+          <div className="sheet-center" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Edit idea</h2>
+              <button className="btn-icon" onClick={() => setEditingIdea(null)} style={{ fontSize: '18px' }}>×</button>
+            </div>
+            <div className="form-row">
+              <div className="form-group full"><label>Title</label><input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} autoFocus /></div>
+              <div className="form-group full"><label>Responsibility</label>
+                <select value={editForm.responsibility} onChange={e => setEditForm(p => ({ ...p, responsibility: e.target.value }))}>
+                  {RESP_COLS.map(r => <option key={r}>{r}</option>)}
+                </select>
+              </div>
+              <div className="form-group full"><label>Details</label><textarea value={editForm.body} onChange={e => setEditForm(p => ({ ...p, body: e.target.value }))} /></div>
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-sm" onClick={() => setEditingIdea(null)}>Cancel</button>
+              <button className="btn btn-sm btn-primary" onClick={handleSaveEdit}>Save</button>
             </div>
           </div>
         </div>
