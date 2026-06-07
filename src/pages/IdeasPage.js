@@ -3,12 +3,14 @@ import React, { useState } from 'react';
 const RESP_BADGE = { Marketing: 'badge-marketing', 'Employee retention': 'badge-retention', Recruitment: 'badge-recruitment', Other: 'badge-other' };
 const RESP_COLS = ['Marketing', 'Employee retention', 'Recruitment', 'Other'];
 
-export default function IdeasPage({ data, initialResp }) {
-  const { ideas, addIdea, deleteIdea } = data;
+export default function IdeasPage({ data, initialResp, onConvertIdea }) {
+  const { ideas, addIdea, updateIdea, deleteIdea } = data;
   const [respFilter, setRespFilter] = useState(initialResp || '');
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ title: '', responsibility: initialResp || 'Marketing', body: '' });
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ title: '', responsibility: 'Marketing', body: '' });
 
   const filtered = ideas.filter(i => {
     if (respFilter && i.responsibility !== respFilter) return false;
@@ -28,6 +30,53 @@ export default function IdeasPage({ data, initialResp }) {
     await addIdea(form);
     setForm({ title: '', responsibility: form.responsibility, body: '' });
     setShowForm(false);
+  };
+
+  const startEdit = (idea) => {
+    setEditingId(idea.id);
+    setEditForm({ title: idea.title, responsibility: idea.responsibility, body: idea.body || '' });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm.title.trim()) return;
+    await updateIdea(editingId, editForm);
+    setEditingId(null);
+  };
+
+  const IdeaCard = ({ idea }) => {
+    if (editingId === idea.id) {
+      return (
+        <div className="card" style={{ padding: '12px', marginBottom: '8px' }}>
+          <div className="form-row" style={{ gap: '8px' }}>
+            <div className="form-group full"><label>Title</label><input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} autoFocus /></div>
+            <div className="form-group full"><label>Responsibility</label>
+              <select value={editForm.responsibility} onChange={e => setEditForm(p => ({ ...p, responsibility: e.target.value }))}>
+                {RESP_COLS.map(r => <option key={r}>{r}</option>)}
+              </select>
+            </div>
+            <div className="form-group full"><label>Details</label><textarea value={editForm.body} onChange={e => setEditForm(p => ({ ...p, body: e.target.value }))} /></div>
+          </div>
+          <div className="form-actions">
+            <button className="btn btn-sm" onClick={() => setEditingId(null)}>Cancel</button>
+            <button className="btn btn-sm btn-primary" onClick={handleSaveEdit}>Save</button>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="card" style={{ padding: '10px 12px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+        <div style={{ fontWeight: '600', fontSize: '13px', lineHeight: '1.4' }}>{idea.title}</div>
+        {idea.body && <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: '1.5' }}>{idea.body}</div>}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
+          <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{idea.created_at ? new Date(idea.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px' }} onClick={() => startEdit(idea)}>Edit</button>
+            {onConvertIdea && <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--green)', borderColor: 'var(--green-light)' }} onClick={() => onConvertIdea(idea)}>→ Project</button>}
+            <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => deleteIdea(idea.id)}>Delete</button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -58,36 +107,24 @@ export default function IdeasPage({ data, initialResp }) {
                   <span className={`badge ${RESP_BADGE[r] || 'badge-other'}`}>{r}</span>
                   <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px' }} onClick={() => { setForm(p => ({ ...p, responsibility: r })); setShowForm(true); }}>+ Add</button>
                 </div>
-                {grouped[r].length === 0 ? (
-                  <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 0' }}>No ideas yet.</div>
-                ) : grouped[r].map(idea => (
-                  <div key={idea.id} className="card" style={{ padding: '10px 12px', marginBottom: '8px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                    <div style={{ fontWeight: '600', fontSize: '13px', lineHeight: '1.4' }}>{idea.title}</div>
-                    {idea.body && <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: '1.5' }}>{idea.body}</div>}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
-                      <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{idea.created_at ? new Date(idea.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
-                      <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => deleteIdea(idea.id)}>Delete</button>
-                    </div>
-                  </div>
-                ))}
+                {grouped[r].length === 0
+                  ? <div style={{ fontSize: '12px', color: 'var(--text-3)', padding: '8px 0' }}>No ideas yet.</div>
+                  : grouped[r].map(idea => <IdeaCard key={idea.id} idea={idea} />)
+                }
               </div>
             ))}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
-            {filtered.length === 0 ? (
-              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px 20px', color: 'var(--text-3)', fontSize: '13px' }}>No ideas match your search.</div>
-            ) : filtered.map(idea => (
-              <div key={idea.id} className="card" style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <span className={`badge ${RESP_BADGE[idea.responsibility] || 'badge-other'}`} style={{ alignSelf: 'flex-start' }}>{idea.responsibility}</span>
-                <div style={{ fontWeight: '600', fontSize: '13px', lineHeight: '1.4' }}>{idea.title}</div>
-                {idea.body && <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: '1.5', flex: 1 }}>{idea.body}</div>}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
-                  <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{idea.created_at ? new Date(idea.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
-                  <button className="btn btn-sm" style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => deleteIdea(idea.id)}>Delete</button>
+            {filtered.length === 0
+              ? <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '40px 20px', color: 'var(--text-3)', fontSize: '13px' }}>No ideas match your search.</div>
+              : filtered.map(idea => (
+                <div key={idea.id}>
+                  {!showColumns && <span className={`badge ${RESP_BADGE[idea.responsibility] || 'badge-other'}`} style={{ marginBottom: '6px', display: 'inline-block' }}>{idea.responsibility}</span>}
+                  <IdeaCard idea={idea} />
                 </div>
-              </div>
-            ))}
+              ))
+            }
           </div>
         )}
       </div>
