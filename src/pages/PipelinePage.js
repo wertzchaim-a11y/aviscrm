@@ -10,7 +10,7 @@ function isOverdue(d) { return d && d < new Date().toISOString().slice(0, 10); }
 const EMPTY_FORM = { name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' };
 
 export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertIdeaDone }) {
-  const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, reorderItems, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, deleteIdea, calcProgress, updateFacility } = data;
+  const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, reorderItems, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, updateIdea, deleteIdea, calcProgress, updateFacility } = data;
 
   const [openItem, setOpenItem] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -26,6 +26,9 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
   const [noteInput, setNoteInput] = useState('');
   const [ideaInput, setIdeaInput] = useState({ title: '', body: '' });
   const [activeTab, setActiveTab] = useState('details');
+  const [openIdea, setOpenIdea] = useState(null);
+  const [editingOpenIdea, setEditingOpenIdea] = useState(false);
+  const [openIdeaForm, setOpenIdeaForm] = useState({});
   const [summary, setSummary] = useState({});
   const [editingSummary, setEditingSummary] = useState(null);
 
@@ -216,7 +219,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                     <div style={{ fontSize: '10px', fontWeight: '600', color: '#7A6E00', marginBottom: '4px', opacity: 0.7 }}>{resp}</div>
                     {respIdeas.map(idea => (
                       <div key={idea.id} style={{ background: '#FFFFF5', border: '1px solid #E8E4A0', borderRadius: 'var(--radius)', padding: '7px 8px', marginBottom: '5px', cursor: 'pointer' }}
-                        onClick={() => onGoIdeas(idea.responsibility)}>
+                        onClick={() => { setOpenIdea(idea); setEditingOpenIdea(false); }}>
                         <div style={{ fontSize: '11px', fontWeight: '600', lineHeight: '1.3', marginBottom: '2px' }}>{idea.title}</div>
                         {idea.body && <div style={{ fontSize: '10px', color: '#7A6E00', lineHeight: '1.4' }}>{idea.body.length > 60 ? idea.body.slice(0, 60) + '…' : idea.body}</div>}
                       </div>
@@ -399,6 +402,61 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
           onGoIdeas={() => { setOpenItem(null); onGoIdeas(openItemObj.responsibility); }}
           calcProgress={calcProgress}
         />
+      )}
+
+      {/* Idea detail popup */}
+      {openIdea && (
+        <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setOpenIdea(null)}>
+          <div className="sheet-center" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <span className={`badge badge-${openIdea.responsibility === 'Marketing' ? 'marketing' : openIdea.responsibility === 'Employee retention' ? 'retention' : openIdea.responsibility === 'Recruitment' ? 'recruitment' : 'other'}`}>{openIdea.responsibility}</span>
+              <button className="btn-icon" onClick={() => setOpenIdea(null)} style={{ fontSize: '18px' }}>×</button>
+            </div>
+            {editingOpenIdea ? (
+              <div>
+                <div className="form-row">
+                  <div className="form-group full"><label>Title</label><input value={openIdeaForm.title} onChange={e => setOpenIdeaForm(p => ({ ...p, title: e.target.value }))} autoFocus /></div>
+                  <div className="form-group full"><label>Responsibility</label>
+                    <select value={openIdeaForm.responsibility} onChange={e => setOpenIdeaForm(p => ({ ...p, responsibility: e.target.value }))}>
+                      {RESP_COLS.map(r => <option key={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group full"><label>Details</label><textarea value={openIdeaForm.body} onChange={e => setOpenIdeaForm(p => ({ ...p, body: e.target.value }))} /></div>
+                </div>
+                <div className="form-actions">
+                  <button className="btn btn-sm" onClick={() => setEditingOpenIdea(false)}>Cancel</button>
+                  <button className="btn btn-sm btn-primary" onClick={async () => {
+                    await updateIdea(openIdea.id, openIdeaForm);
+                    setOpenIdea({ ...openIdea, ...openIdeaForm });
+                    setEditingOpenIdea(false);
+                  }}>Save</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ fontSize: '17px', fontWeight: '600', marginBottom: '8px', lineHeight: '1.4' }}>{openIdea.title}</div>
+                {openIdea.body && <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: '1.6', marginBottom: '14px', padding: '10px 12px', background: 'var(--bg)', borderRadius: 'var(--radius)' }}>{openIdea.body}</div>}
+                <div style={{ fontSize: '11px', color: 'var(--text-3)', marginBottom: '14px' }}>
+                  {openIdea.created_at ? new Date(openIdea.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button className="btn btn-sm" onClick={() => { setOpenIdeaForm({ title: openIdea.title, responsibility: openIdea.responsibility, body: openIdea.body || '' }); setEditingOpenIdea(true); }}>Edit</button>
+                  <button className="btn btn-sm" style={{ color: 'var(--green)', borderColor: 'var(--green-light)' }} onClick={() => {
+                    setAddForm(p => ({ ...p, name: openIdea.title, responsibility: openIdea.responsibility, type: 'project' }));
+                    setQuickNotes(openIdea.body ? [openIdea.body] : []);
+                    setActiveTab('details');
+                    setShowAddForm(true);
+                    setOpenIdea(null);
+                  }}>→ Convert to project</button>
+                  <button className="btn btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red-light)', marginLeft: 'auto' }} onClick={async () => {
+                    await deleteIdea(openIdea.id);
+                    setOpenIdea(null);
+                  }}>Delete</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
