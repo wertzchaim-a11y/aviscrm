@@ -21,6 +21,7 @@ function AppInner() {
   const data = useData();
   const [page, setPage] = useState('pipeline');
   const [ideasResp, setIdeasResp] = useState('');
+  const [convertIdea, setConvertIdea] = useState(null);
 
   if (authLoading) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: '14px' }}>Loading…</div>
@@ -31,6 +32,7 @@ function AppInner() {
   );
 
   const goIdeas = (resp) => { setIdeasResp(resp || ''); setPage('ideas'); };
+  const handleConvertIdea = (idea) => { setConvertIdea(idea); setPage('pipeline'); };
 
   return (
     <>
@@ -53,10 +55,10 @@ function AppInner() {
 
       {/* Main content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-        {page === 'pipeline' && <PipelinePage data={data} onGoIdeas={goIdeas} />}
+        {page === 'pipeline' && <PipelinePage data={data} onGoIdeas={goIdeas} convertIdea={convertIdea} onConvertIdeaDone={() => setConvertIdea(null)} />}
         {page === 'tasks' && <TasksPage data={data} />}
         {page === 'calendar' && <CalendarPage data={data} />}
-        {page === 'ideas' && <IdeasPage data={data} initialResp={ideasResp} />}
+        {page === 'ideas' && <IdeasPage data={data} initialResp={ideasResp} onConvertIdea={handleConvertIdea} />}
         {page === 'archive' && <ArchivePage data={data} />}
 
         {/* Mobile bottom tab bar */}
