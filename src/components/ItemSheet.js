@@ -50,7 +50,14 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
 
   const progress = calcProgress(item);
   const itemSteps = steps.filter(s => s.item_id === item.id);
-  const itemTasks = tasks.filter(t => t.item_id === item.id);
+  const PRI_ORDER = { High: 0, Medium: 1, Low: 2 };
+  const itemTasks = tasks.filter(t => t.item_id === item.id).sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    if (a.due_date && b.due_date) return a.due_date.localeCompare(b.due_date);
+    if (a.due_date) return -1;
+    if (b.due_date) return 1;
+    return (PRI_ORDER[a.priority] ?? 1) - (PRI_ORDER[b.priority] ?? 1);
+  });
   const itemNotes = notes.filter(n => n.item_id === item.id);
   const respIdeas = ideas.filter(i => i.responsibility === item.responsibility);
   const today = new Date().toISOString().slice(0, 10);
