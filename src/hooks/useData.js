@@ -14,7 +14,7 @@ export function useData() {
     setLoading(true);
     const [f, i, s, t, n, id] = await Promise.all([
       supabase.from('facilities').select('*').order('position'),
-      supabase.from('items').select('*').order('created_at'),
+      supabase.from('items').select('*').order('position').order('created_at'),
       supabase.from('steps').select('*').order('created_at'),
       supabase.from('tasks').select('*').order('created_at'),
       supabase.from('notes').select('*').order('created_at'),
