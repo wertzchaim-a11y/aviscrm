@@ -276,8 +276,13 @@ export default function CalendarPage({ data }) {
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: '600', fontSize: '13px', textDecoration: ev.task?.done ? 'line-through' : 'none', color: ev.task?.done ? 'var(--text-3)' : 'var(--text)' }}>{ev.label}</div>
                         {isOutlook && ev.preview && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{ev.preview.slice(0, 80)}{ev.preview.length > 80 ? '…' : ''}</div>}
-                        {!isOutlook && fac && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{fac.name}{item?.responsibility ? ' · ' + item.responsibility : ''}</div>}
-                        {isTask && !ev.id && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>Standalone task</div>}
+                        {!isOutlook && !isTask && fac && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{fac.name}{item?.responsibility ? ' · ' + item.responsibility : ''}</div>}
+                        {isTask && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
+                            {item ? <span>{fac?.name} · {item.name}</span> : <span>Standalone task</span>}
+                            {ev.task?.assigned_to && <span> · {ev.task.assigned_to}</span>}
+                          </div>
+                        )}
                       </div>
                       <span className="badge" style={{ fontSize: '10px', background: clsColor[ev.cls]?.bg, color: clsColor[ev.cls]?.color }}>
                         {ev.cls === 'proj' ? 'project' : ev.cls === 'evt' ? 'event' : ev.cls === 'outlook' ? '📅 outlook' : 'task'}
