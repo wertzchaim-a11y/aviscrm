@@ -147,8 +147,9 @@ export default function CalendarPage({ data }) {
                   <span style={{ fontSize: '10px', fontWeight: isToday ? '700' : '400', color: isToday ? '#fff' : 'var(--text-2)' }}>{d}</span>
                 </div>
                 {evs.slice(0, 2).map((ev, ei) => (
-                  <div key={ei} onClick={e => { e.stopPropagation(); if (ev.cls !== 'outlook' && ev.id) setOpenItem(ev.id); else if (ev.cls === 'tsk' && !ev.id) { setSelectedTask(ev.task); } }}
-                    style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', marginBottom: '1px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...clsColor[ev.cls] }}>
+                  <div key={ei}
+                    onClick={e => { e.stopPropagation(); if (ev.cls !== 'outlook' && ev.id) setOpenItem(ev.id); else if (ev.cls === 'tsk' && !ev.id) setSelectedTask(ev.task); }}
+                    style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', marginBottom: '1px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: ev.task?.done ? 0.5 : 1, textDecoration: ev.task?.done ? 'line-through' : 'none', ...clsColor[ev.cls] }}>
                     {ev.label}
                   </div>
                 ))}
@@ -263,9 +264,17 @@ export default function CalendarPage({ data }) {
                       else if (ev.id) { setOpenItem(ev.id); setSelectedDate(null); }
                     }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0, background: ev.cls === 'proj' ? '#3C3489' : ev.cls === 'evt' ? '#085041' : ev.cls === 'outlook' ? '#A84000' : '#0C447C' }} />
+                      {isTask ? (
+                        <div className={`cb ${ev.task?.done ? 'checked' : ''}`}
+                          onClick={e => { e.stopPropagation(); if (ev.task) toggleTask(ev.task.id); }}
+                          style={{ flexShrink: 0 }}>
+                          {ev.task?.done && <span style={{ color: '#fff', fontSize: '9px', fontWeight: '700' }}>✓</span>}
+                        </div>
+                      ) : (
+                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0, background: ev.cls === 'proj' ? '#3C3489' : ev.cls === 'evt' ? '#085041' : '#A84000' }} />
+                      )}
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600', fontSize: '13px' }}>{ev.label}</div>
+                        <div style={{ fontWeight: '600', fontSize: '13px', textDecoration: ev.task?.done ? 'line-through' : 'none', color: ev.task?.done ? 'var(--text-3)' : 'var(--text)' }}>{ev.label}</div>
                         {isOutlook && ev.preview && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{ev.preview.slice(0, 80)}{ev.preview.length > 80 ? '…' : ''}</div>}
                         {!isOutlook && fac && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{fac.name}{item?.responsibility ? ' · ' + item.responsibility : ''}</div>}
                         {isTask && !ev.id && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>Standalone task</div>}
@@ -295,7 +304,7 @@ export default function CalendarPage({ data }) {
               <button className="btn-icon" onClick={() => setSelectedTask(null)} style={{ fontSize: '18px' }}>×</button>
             </div>
             <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px' }}>{selectedTask.name}</div>
+              <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px', textDecoration: selectedTask.done ? 'line-through' : 'none', color: selectedTask.done ? 'var(--text-3)' : 'var(--text)' }}>{selectedTask.name}</div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                 {selectedTask.priority && <span className={`badge badge-${selectedTask.priority?.toLowerCase()}`}>{selectedTask.priority}</span>}
                 {selectedTask.assigned_to && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>{selectedTask.assigned_to}</span>}
