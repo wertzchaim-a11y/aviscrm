@@ -5,7 +5,7 @@ import PeopleInput from '../components/PeopleInput';
 const CATEGORIES = ['Marketing', 'Employee retention', 'Recruitment', 'Other'];
 const CAT_BADGE = { Marketing: 'badge-marketing', 'Employee retention': 'badge-retention', Recruitment: 'badge-recruitment', Other: 'badge-other' };
 
-export default function NotesPage({ data }) {
+export default function NotesPage({ data, onGoToPerson }) {
   const { facilities, items } = data;
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +98,13 @@ export default function NotesPage({ data }) {
                     {fac && <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{fac.name}</span>}
                     <span className={`badge ${CAT_BADGE[note.category] || 'badge-other'}`} style={{ fontSize: '10px' }}>{note.category}</span>
                     {linkedItem && <span style={{ fontSize: '11px', color: 'var(--blue)', background: 'var(--blue-light)', padding: '1px 7px', borderRadius: '8px' }}>📁 {linkedItem.name}</span>}
-                    {note.person_name && <span style={{ fontSize: '11px', color: 'var(--green-text)', background: 'var(--green-light)', padding: '1px 7px', borderRadius: '8px' }}>👤 {note.person_name}</span>}
+                    {note.person_name && (
+                      <span
+                        onClick={() => onGoToPerson && onGoToPerson(note.person_name)}
+                        style={{ fontSize: '11px', color: 'var(--green-text)', background: 'var(--green-light)', padding: '1px 7px', borderRadius: '8px', cursor: 'pointer', textDecoration: 'underline' }}>
+                        👤 {note.person_name}
+                      </span>
+                    )}
                     <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>· {fmtDate(note.created_at)}</span>
                   </div>
                 </div>
@@ -114,7 +120,6 @@ export default function NotesPage({ data }) {
         })}
       </div>
 
-      {/* Add memo modal */}
       {showForm && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div className="sheet-center" style={{ padding: '20px' }}>
@@ -154,7 +159,6 @@ export default function NotesPage({ data }) {
         </div>
       )}
 
-      {/* Edit memo modal */}
       {editingNote && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setEditingNote(null)}>
           <div className="sheet-center" style={{ padding: '20px' }}>
