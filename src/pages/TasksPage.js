@@ -13,7 +13,12 @@ export default function TasksPage({ data }) {
   const [personFilter, setPersonFilter] = useState('');
   const [priFilter, setPriFilter] = useState('');
   const [search, setSearch] = useState('');
-  const [sortMode, setSortMode] = useState('priority'); // 'priority' | 'due' | 'manual'
+  const [sortMode, setSortMode] = useState(() => localStorage.getItem('tasks-sort') || 'due');
+
+  const handleSortChange = (mode) => {
+    setSortMode(mode);
+    localStorage.setItem('tasks-sort', mode);
+  };
   const [openItem, setOpenItem] = useState(null);
   const [showAddTask, setShowAddTask] = useState(false);
   const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
@@ -83,7 +88,7 @@ export default function TasksPage({ data }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <h1 style={{ fontSize: '18px', fontWeight: '600' }}>Tasks</h1>
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-            <select value={sortMode} onChange={e => setSortMode(e.target.value)} style={{ fontSize: '11px', padding: '4px 20px 4px 7px', height: '26px', borderRadius: 'var(--border-radius-md)', border: '0.5px solid var(--border)', background: 'var(--surface)', color: 'var(--text-2)' }}>
+            <select value={sortMode} onChange={e => handleSortChange(e.target.value)} style={{ fontSize: '11px', padding: '4px 20px 4px 7px', height: '26px', borderRadius: 'var(--border-radius-md)', border: '0.5px solid var(--border)', background: 'var(--surface)', color: 'var(--text-2)' }}>
               <option value="priority">Sort: Priority</option>
               <option value="due">Sort: Due date</option>
               <option value="manual">Sort: Manual</option>
