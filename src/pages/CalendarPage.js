@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ItemSheet from '../components/ItemSheet';
+import OutlookConnect from '../components/OutlookConnect';
+import { getValidAccessToken, fetchOutlookEvents, isOutlookConnected } from '../lib/outlookSync';
 
 const RESP_COLS = ['Marketing', 'Employee retention', 'Recruitment', 'Other'];
 function getDaysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
@@ -13,9 +15,27 @@ export default function CalendarPage({ data }) {
   const [filters, setFilters] = useState({ task: true, event: true, project: true });
   const [openItem, setOpenItem] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
-  const [addType, setAddType] = useState('task'); // 'task' | 'project' | 'event'
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [addType, setAddType] = useState('task');
   const [itemForm, setItemForm] = useState({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' });
   const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
+  const [outlookEvents, setOutlookEvents] = useState([]);
+  const [outlookConnected, setOutlookConnected] = useState(isOutlookConnected());
+  const [showOutlook, setShowOutlook] = useState(true);
+
+  // Fetch Outlook events when month changes or connected
+  useEffect(() => {
+    if (!outlookConnected) return;
+    const fetchOL = async () => {
+      const token = await getValidAccessToken();
+      if (!token) return;
+      const start = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+      const end = `${year}-${String(month + 1).padStart(2, '0')}-${String(getDaysInMonth(year, month)).padStart(2, '0')}`;
+      const events = await fetchOutlookEvents(token, start, end);
+      if (events) setOutlookEvents(events);
+    };
+    fetchOL();
+  }, [year, month, outlookConnected]);
 
   const todayStr = now.toISOString().slice(0, 10);
   const daysInMonth = getDaysInMonth(year, month);
@@ -43,7 +63,6 @@ export default function CalendarPage({ data }) {
     setShowAdd(false);
   };
 
-  // Build event map
   const evMap = {};
   const addEv = (date, entry) => { if (!date) return; (evMap[date] = evMap[date] || []).push(entry); };
   items.forEach(item => {
@@ -52,9 +71,21 @@ export default function CalendarPage({ data }) {
   });
   if (filters.task) tasks.forEach(t => { if (t.due_date) { const item = items.find(i => i.id === t.item_id); addEv(t.due_date, { label: t.name, cls: 'tsk', id: item?.id }); } });
 
-  const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-  const clsColor = { proj: { bg: '#EEEDFE', color: '#3C3489' }, evt: { bg: '#E1F5EE', color: '#085041' }, tsk: { bg: '#E6F1FB', color: '#0C447C' } };
+  // Add Outlook events to the map
+  if (outlookConnected && showOutlook) {
+    outlookEvents.forEach(ev => {
+      const date = (ev.isAllDay ? ev.start.date : ev.start.dateTime?.slice(0, 10));
+      if (date) addEv(date, { label: ev.subject, cls: 'outlook', id: null, preview: ev.bodyPreview });
+    });
+  }
 
+  const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const clsColor = {
+    proj: { bg: '#EEEDFE', color: '#3C3489' },
+    evt: { bg: '#E1F5EE', color: '#085041' },
+    tsk: { bg: '#E6F1FB', color: '#0C447C' },
+    outlook: { bg: '#FFF0E6', color: '#A84000' },
+  };
   const openItemObj = items.find(i => i.id === openItem);
   const openFacility = facilities.find(f => f.id === openItemObj?.facility_id);
 
@@ -63,15 +94,24 @@ export default function CalendarPage({ data }) {
       <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg)', borderBottom: '1px solid var(--border)', padding: '12px 16px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <h1 style={{ fontSize: '18px', fontWeight: '600' }}>Calendar</h1>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Add</button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <OutlookConnect onConnected={() => setOutlookConnected(true)} />
+            <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Add</button>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
           {[['task', 'Tasks'], ['event', 'Events'], ['project', 'Projects']].map(([key, label]) => (
             <button key={key} onClick={() => toggleFilter(key)}
               style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: '500', cursor: 'pointer', transition: 'all 0.15s', background: filters[key] ? 'var(--text)' : 'var(--surface)', color: filters[key] ? '#fff' : 'var(--text-3)', border: filters[key] ? '1px solid var(--text)' : '1px solid var(--border)' }}>
               {label}
             </button>
           ))}
+          {outlookConnected && (
+            <button onClick={() => setShowOutlook(p => !p)}
+              style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: '500', cursor: 'pointer', transition: 'all 0.15s', background: showOutlook ? '#FFF0E6' : 'var(--surface)', color: showOutlook ? '#A84000' : 'var(--text-3)', border: showOutlook ? '1px solid #FFC8A0' : '1px solid var(--border)' }}>
+              📅 Outlook
+            </button>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button className="btn-icon" onClick={() => move(-1)}>‹</button>
@@ -96,12 +136,15 @@ export default function CalendarPage({ data }) {
             const evs = evMap[ds] || [];
             const isToday = ds === todayStr;
             return (
-              <div key={d} style={{ minHeight: '64px', background: 'var(--surface)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '3px' }}>
+              <div key={d} onClick={() => setSelectedDate(ds)}
+                style={{ minHeight: '64px', background: 'var(--surface)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '3px', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}>
                 <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: isToday ? 'var(--green)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '2px' }}>
                   <span style={{ fontSize: '10px', fontWeight: isToday ? '700' : '400', color: isToday ? '#fff' : 'var(--text-2)' }}>{d}</span>
                 </div>
                 {evs.slice(0, 2).map((ev, ei) => (
-                  <div key={ei} onClick={() => ev.id && setOpenItem(ev.id)}
+                  <div key={ei} onClick={e => { e.stopPropagation(); ev.id && setOpenItem(ev.id); }}
                     style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', marginBottom: '1px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', ...clsColor[ev.cls] }}>
                     {ev.label}
                   </div>
@@ -121,7 +164,6 @@ export default function CalendarPage({ data }) {
               <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Add to calendar</h2>
               <button className="btn-icon" onClick={() => setShowAdd(false)} style={{ fontSize: '18px' }}>×</button>
             </div>
-            {/* Type selector */}
             <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
               {[['task', 'Task'], ['project', 'Project'], ['event', 'Event']].map(([t, l]) => (
                 <button key={t} onClick={() => setAddType(t)}
@@ -130,7 +172,6 @@ export default function CalendarPage({ data }) {
                 </button>
               ))}
             </div>
-
             {addType === 'task' ? (
               <div className="form-row">
                 <div className="form-group full"><label>Task name</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="What needs to be done?" /></div>
@@ -167,7 +208,6 @@ export default function CalendarPage({ data }) {
                 <div className="form-group"><label>Assigned to</label><input value={itemForm.assigned_to} onChange={e => setItemForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
               </div>
             )}
-
             <div className="form-actions">
               <button className="btn btn-sm" onClick={() => setShowAdd(false)}>Cancel</button>
               <button className="btn btn-sm btn-primary" onClick={handleSave}>Save</button>
@@ -186,6 +226,54 @@ export default function CalendarPage({ data }) {
           onGoIdeas={() => setOpenItem(null)}
           calcProgress={calcProgress}
         />
+      )}
+
+      {/* Date click popup */}
+      {selectedDate && (
+        <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setSelectedDate(null)}>
+          <div className="sheet-center" style={{ padding: '20px', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '600' }}>
+                {new Date(selectedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </h2>
+              <button className="btn-icon" onClick={() => setSelectedDate(null)} style={{ fontSize: '18px' }}>×</button>
+            </div>
+            {(() => {
+              const dayEvs = evMap[selectedDate] || [];
+              if (dayEvs.length === 0) return (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--text-3)', fontSize: '13px' }}>
+                  <div style={{ fontSize: '28px', marginBottom: '8px' }}>📭</div>
+                  Nothing scheduled for this day.
+                </div>
+              );
+              return dayEvs.map((ev, i) => {
+                const item = items.find(it => it.id === ev.id);
+                const fac = facilities.find(f => f.id === item?.facility_id);
+                const isOutlook = ev.cls === 'outlook';
+                return (
+                  <div key={i} className="card" style={{ padding: '10px 14px', marginBottom: '8px', cursor: isOutlook ? 'default' : 'pointer' }}
+                    onClick={() => { if (!isOutlook && ev.id) { setOpenItem(ev.id); setSelectedDate(null); } }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0, background: ev.cls === 'proj' ? '#3C3489' : ev.cls === 'evt' ? '#085041' : ev.cls === 'outlook' ? '#A84000' : '#0C447C' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '600', fontSize: '13px' }}>{ev.label}</div>
+                        {isOutlook && ev.preview && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{ev.preview.slice(0, 80)}{ev.preview.length > 80 ? '…' : ''}</div>}
+                        {!isOutlook && fac && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{fac.name}{item?.responsibility ? ' · ' + item.responsibility : ''}</div>}
+                      </div>
+                      <span className={`badge`} style={{ fontSize: '10px', background: clsColor[ev.cls]?.bg, color: clsColor[ev.cls]?.color }}>
+                        {ev.cls === 'proj' ? 'project' : ev.cls === 'evt' ? 'event' : ev.cls === 'outlook' ? '📅 outlook' : 'task'}
+                      </span>
+                    </div>
+                  </div>
+                );
+              });
+            })()}
+            <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '10px' }}
+              onClick={() => { setTaskForm(p => ({ ...p, due_date: selectedDate })); setAddType('task'); setShowAdd(true); setSelectedDate(null); }}>
+              + Add something on this day
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
