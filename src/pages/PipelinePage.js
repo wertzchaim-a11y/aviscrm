@@ -187,7 +187,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                             <span style={{ color: 'var(--text-3)', fontSize: '11px', marginTop: '1px', flexShrink: 0 }}>⠿</span>
                             <span style={{ fontWeight: '600', fontSize: '12px', lineHeight: '1.3' }}>{item.name}</span>
                           </div>
-                          <span className={`badge ${item.type === 'project' ? 'badge-project' : 'badge-event'}`} style={{ fontSize: '9px', padding: '1px 5px', flexShrink: 0 }}>{item.type}</span>
+                          <span className={`badge ${item.type === 'project' ? 'badge-project' : item.type === 'meeting' ? 'badge-high' : 'badge-event'}`} style={{ fontSize: '9px', padding: '1px 5px', flexShrink: 0 }}>{item.type}</span>
                         </div>
                         {item.due_date ? <div style={{ fontSize: '10px', color: overdue ? 'var(--red)' : 'var(--text-3)', marginBottom: '5px' }}>{overdue ? 'Overdue: ' : 'Due: '}{fmt(item.due_date)}</div>
                           : <div style={{ fontSize: '10px', color: 'var(--text-3)', marginBottom: '5px' }}>No due date</div>}
@@ -242,7 +242,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && resetForm()}>
           <div className="sheet-center" style={{ padding: '20px', maxHeight: '85vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Add project or event</h2>
+              <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Add project, event or meeting</h2>
               <button className="btn-icon" onClick={resetForm} style={{ fontSize: '18px' }}>×</button>
             </div>
             <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', marginBottom: '16px' }}>
@@ -261,7 +261,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                 <div className="form-group full"><label>Name *</label><input value={addForm.name} onChange={e => setAddForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="Project or event name" /></div>
                 <div className="form-group"><label>Type</label>
                   <select value={addForm.type} onChange={e => setAddForm(p => ({ ...p, type: e.target.value }))}>
-                    <option value="project">Project</option><option value="event">Event</option>
+                    <option value="project">Project</option><option value="event">Event</option><option value="meeting">Meeting</option>
                   </select>
                 </div>
                 <div className="form-group"><label>Facility *</label>
