@@ -72,13 +72,19 @@ export default function CalendarPage({ data }) {
   if (filters.task) tasks.forEach(t => {
     if (t.due_date) {
       const item = items.find(i => i.id === t.item_id);
-      addEv(t.due_date, { label: t.name, cls: 'tsk', id: item?.id, task_id: t.id, task: t });
+      const cls = t.task_type === 'meeting' ? 'mtg' : 'tsk';
+      addEv(t.due_date, { label: t.name, cls, id: item?.id, task_id: t.id, task: t });
     }
   });
   if (outlookConnected && showOutlook) {
     outlookEvents.forEach(ev => {
       const date = ev.isAllDay ? ev.start.date : ev.start.dateTime?.slice(0, 10);
-      if (date) addEv(date, { label: ev.subject, cls: 'outlook', id: null, preview: ev.bodyPreview });
+      const hasAttendees = ev.attendees && ev.attendees.length > 0;
+      const isOnline = ev.isOnlineMeeting;
+      const response = ev.responseStatus?.response || 'none';
+      const accepted = response === 'accepted' || response === 'organizer';
+      const cls = (hasAttendees || isOnline) ? (accepted ? 'outlook_mtg_yes' : 'outlook_mtg_maybe') : 'outlook_evt';
+      if (date) addEv(date, { label: ev.subject, cls, id: null, preview: ev.bodyPreview, response });
     });
   }
 
@@ -87,7 +93,10 @@ export default function CalendarPage({ data }) {
     proj: { bg: '#EEEDFE', color: '#3C3489' },
     evt: { bg: '#E1F5EE', color: '#085041' },
     tsk: { bg: '#E6F1FB', color: '#0C447C' },
-    outlook: { bg: '#FFF0E6', color: '#A84000' },
+    mtg: { bg: '#FDEAEA', color: '#C0392B' },
+    outlook_mtg_yes: { bg: '#FDEAEA', color: '#C0392B' },
+    outlook_mtg_maybe: { bg: '#FDF0F0', color: '#E07070' },
+    outlook_evt: { bg: '#E1F5EE', color: '#085041' },
   };
   const openItemObj = items.find(i => i.id === openItem);
   const openFacility = facilities.find(f => f.id === openItemObj?.facility_id);
@@ -148,7 +157,7 @@ export default function CalendarPage({ data }) {
                 </div>
                 {evs.slice(0, 2).map((ev, ei) => (
                   <div key={ei}
-                    onClick={e => { e.stopPropagation(); if (ev.cls !== 'outlook' && ev.id) setOpenItem(ev.id); else if (ev.cls === 'tsk' && !ev.id) setSelectedTask(ev.task); }}
+                    onClick={e => { e.stopPropagation(); if (ev.cls !== 'outlook_mtg_yes' && ev.cls !== 'outlook_mtg_maybe' && ev.cls !== 'outlook_evt' && ev.id) setOpenItem(ev.id); else if ((ev.cls === 'tsk' || ev.cls === 'mtg') && !ev.id) setSelectedTask(ev.task); }}
                     style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', marginBottom: '1px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: ev.task?.done ? 0.5 : 1, textDecoration: ev.task?.done ? 'line-through' : 'none', ...clsColor[ev.cls] }}>
                     {ev.label}
                   </div>
@@ -232,7 +241,7 @@ export default function CalendarPage({ data }) {
         />
       )}
 
-      {/* Date click popup */}
+      {/* Date click popup — 3 columns */}
       {selectedDate && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setSelectedDate(null)}>
           <div className="sheet-center" style={{ padding: '20px', maxHeight: '80vh', overflowY: 'auto' }}>
@@ -250,47 +259,59 @@ export default function CalendarPage({ data }) {
                   Nothing scheduled for this day.
                 </div>
               );
-              return dayEvs.map((ev, i) => {
+              const evTasks = dayEvs.filter(ev => ev.cls === 'tsk');
+              const evMeetings = dayEvs.filter(ev => ev.cls === 'mtg' || ev.cls === 'outlook_mtg_yes' || ev.cls === 'outlook_mtg_maybe');
+              const evEvents = dayEvs.filter(ev => ev.cls === 'evt' || ev.cls === 'proj' || ev.cls === 'outlook_evt');
+
+              const renderEv = (ev, i) => {
                 const item = items.find(it => it.id === ev.id);
                 const fac = facilities.find(f => f.id === item?.facility_id);
-                const isOutlook = ev.cls === 'outlook';
-                const isTask = ev.cls === 'tsk';
+                const isOutlook = ev.cls === 'outlook_mtg_yes' || ev.cls === 'outlook_mtg_maybe' || ev.cls === 'outlook_evt';
+                const isTask = ev.cls === 'tsk' || ev.cls === 'mtg';
+                const isTentative = ev.cls === 'outlook_mtg_maybe';
                 return (
-                  <div key={i} className="card" style={{ padding: '10px 14px', marginBottom: '8px', cursor: isOutlook ? 'default' : 'pointer' }}
+                  <div key={i} className="card" style={{ padding: '8px 10px', marginBottom: '6px', cursor: isOutlook ? 'default' : 'pointer', fontSize: '12px', borderLeft: `3px solid ${clsColor[ev.cls]?.color}`, opacity: isTentative ? 0.75 : 1 }}
                     onClick={() => {
                       if (isOutlook) return;
                       if (isTask && ev.id) { setOpenItem(ev.id); setSelectedDate(null); }
                       else if (isTask && !ev.id) { setSelectedTask(ev.task); setSelectedDate(null); }
                       else if (ev.id) { setOpenItem(ev.id); setSelectedDate(null); }
                     }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {isTask ? (
-                        <div className={`cb ${ev.task?.done ? 'checked' : ''}`}
-                          onClick={e => { e.stopPropagation(); if (ev.task) toggleTask(ev.task.id); }}
-                          style={{ flexShrink: 0 }}>
-                          {ev.task?.done && <span style={{ color: '#fff', fontSize: '9px', fontWeight: '700' }}>✓</span>}
-                        </div>
-                      ) : (
-                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', flexShrink: 0, background: ev.cls === 'proj' ? '#3C3489' : ev.cls === 'evt' ? '#085041' : '#A84000' }} />
-                      )}
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: '600', fontSize: '13px', textDecoration: ev.task?.done ? 'line-through' : 'none', color: ev.task?.done ? 'var(--text-3)' : 'var(--text)' }}>{ev.label}</div>
-                        {isOutlook && ev.preview && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{ev.preview.slice(0, 80)}{ev.preview.length > 80 ? '…' : ''}</div>}
-                        {!isOutlook && !isTask && fac && <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>{fac.name}{item?.responsibility ? ' · ' + item.responsibility : ''}</div>}
-                        {isTask && (
-                          <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
-                            {item ? <span>{fac?.name} · {item.name}</span> : <span>Standalone task</span>}
-                            {ev.task?.assigned_to && <span> · {ev.task.assigned_to}</span>}
-                          </div>
-                        )}
+                    {isTask && (
+                      <div className={`cb ${ev.task?.done ? 'checked' : ''}`}
+                        onClick={e => { e.stopPropagation(); if (ev.task) toggleTask(ev.task.id); }}
+                        style={{ flexShrink: 0, marginBottom: '4px' }}>
+                        {ev.task?.done && <span style={{ color: '#fff', fontSize: '9px', fontWeight: '700' }}>✓</span>}
                       </div>
-                      <span className="badge" style={{ fontSize: '10px', background: clsColor[ev.cls]?.bg, color: clsColor[ev.cls]?.color }}>
-                        {ev.cls === 'proj' ? 'project' : ev.cls === 'evt' ? 'event' : ev.cls === 'outlook' ? '📅 outlook' : 'task'}
-                      </span>
+                    )}
+                    <div style={{ fontWeight: '600', textDecoration: ev.task?.done ? 'line-through' : 'none', color: ev.task?.done ? 'var(--text-3)' : 'var(--text)', marginBottom: '2px' }}>
+                      {ev.label}{isTentative && <span style={{ fontSize: '9px', marginLeft: '4px', color: '#E07070' }}>?</span>}
                     </div>
+                    {isOutlook && ev.preview && <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{ev.preview.slice(0, 50)}…</div>}
+                    {isOutlook && ev.cls !== 'outlook_evt' && <div style={{ fontSize: '9px', color: isTentative ? '#E07070' : '#C0392B', marginTop: '2px' }}>{isTentative ? 'Not responded' : 'Accepted'} · Outlook</div>}
+                    {isOutlook && ev.cls === 'outlook_evt' && <div style={{ fontSize: '9px', color: 'var(--text-3)', marginTop: '2px' }}>Outlook</div>}
+                    {isTask && <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{item ? item.name : 'Standalone'}{ev.task?.assigned_to ? ' · ' + ev.task.assigned_to : ''}{ev.task?.meeting_time ? ' @ ' + ev.task.meeting_time : ''}</div>}
+                    {!isTask && !isOutlook && fac && <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{fac.name}</div>}
                   </div>
                 );
-              });
+              };
+
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#0C447C', background: '#E6F1FB', padding: '5px 8px', borderRadius: 'var(--radius)', marginBottom: '8px', textAlign: 'center' }}>☑ Tasks ({evTasks.length})</div>
+                    {evTasks.length === 0 ? <div style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center', padding: '8px 0' }}>None</div> : evTasks.map(renderEv)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#C0392B', background: '#FDEAEA', padding: '5px 8px', borderRadius: 'var(--radius)', marginBottom: '8px', textAlign: 'center' }}>📅 Meetings ({evMeetings.length})</div>
+                    {evMeetings.length === 0 ? <div style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center', padding: '8px 0' }}>None</div> : evMeetings.map(renderEv)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#085041', background: '#E1F5EE', padding: '5px 8px', borderRadius: 'var(--radius)', marginBottom: '8px', textAlign: 'center' }}>📁 Events ({evEvents.length})</div>
+                    {evEvents.length === 0 ? <div style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center', padding: '8px 0' }}>None</div> : evEvents.map(renderEv)}
+                  </div>
+                </div>
+              );
             })()}
             <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '10px' }}
               onClick={() => { setTaskForm(p => ({ ...p, due_date: selectedDate })); setAddType('task'); setShowAdd(true); setSelectedDate(null); }}>
@@ -305,15 +326,16 @@ export default function CalendarPage({ data }) {
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setSelectedTask(null)}>
           <div className="sheet-center" style={{ padding: '20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Task</h2>
+              <h2 style={{ fontSize: '16px', fontWeight: '600' }}>{selectedTask.task_type === 'meeting' ? 'Meeting' : 'Task'}</h2>
               <button className="btn-icon" onClick={() => setSelectedTask(null)} style={{ fontSize: '18px' }}>×</button>
             </div>
             <div style={{ marginBottom: '12px' }}>
               <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px', textDecoration: selectedTask.done ? 'line-through' : 'none', color: selectedTask.done ? 'var(--text-3)' : 'var(--text)' }}>{selectedTask.name}</div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {selectedTask.priority && <span className={`badge badge-${selectedTask.priority?.toLowerCase()}`}>{selectedTask.priority}</span>}
+                {selectedTask.priority && selectedTask.task_type !== 'meeting' && <span className={`badge badge-${selectedTask.priority?.toLowerCase()}`}>{selectedTask.priority}</span>}
                 {selectedTask.assigned_to && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>{selectedTask.assigned_to}</span>}
-                {selectedTask.due_date && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>Due {selectedTask.due_date}</span>}
+                {selectedTask.due_date && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>Due {selectedTask.due_date}{selectedTask.meeting_time ? ' @ ' + selectedTask.meeting_time : ''}</span>}
+                {selectedTask.attendees && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>👥 {selectedTask.attendees}</span>}
                 <span className="badge" style={{ background: selectedTask.done ? 'var(--green-light)' : 'var(--gray-light)', color: selectedTask.done ? 'var(--green-text)' : 'var(--gray)' }}>{selectedTask.done ? 'Done' : 'Open'}</span>
               </div>
               {selectedTask.notes && <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '10px', lineHeight: '1.6' }}>{selectedTask.notes}</div>}
