@@ -34,16 +34,6 @@ export default function CalendarPage({ data }) {
   const [noteInput, setNoteInput] = useState('');
   const [ideaInput, setIdeaInput] = useState({ title: '', body: '' });
 
-  const resetAdd = () => {
-    setShowAdd(false);
-    setActiveTab('details');
-    setQuickSteps([]); setQuickTasks([]); setQuickNotes([]); setQuickIdeas([]);
-    setStepInput(''); setTaskInput({ name: '', due_date: '', priority: 'Medium' });
-    setNoteInput(''); setIdeaInput({ title: '', body: '' });
-    setMeetingForm({ name: '', due_date: '', meeting_time: '', assigned_to: '', attendees: '', notes: '', item_id: '' });
-    setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
-  };
-
   const todayStr = now.toISOString().slice(0, 10);
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDay(year, month);
@@ -61,6 +51,15 @@ export default function CalendarPage({ data }) {
     };
     fetchOL();
   }, [year, month, outlookConnected]);
+
+  const resetAdd = () => {
+    setShowAdd(false); setActiveTab('details');
+    setQuickSteps([]); setQuickTasks([]); setQuickNotes([]); setQuickIdeas([]);
+    setStepInput(''); setTaskInput({ name: '', due_date: '', priority: 'Medium' });
+    setNoteInput(''); setIdeaInput({ title: '', body: '' });
+    setMeetingForm({ name: '', due_date: '', meeting_time: '', assigned_to: '', attendees: '', notes: '', item_id: '' });
+    setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
+  };
 
   const toggleFilter = (key) => setFilters(p => ({ ...p, [key]: !p[key] }));
   const move = (dir) => {
@@ -119,15 +118,18 @@ export default function CalendarPage({ data }) {
 
   const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
   const clsColor = {
-    proj: { bg: '#EEEDFE', color: '#3C3489' },
-    evt: { bg: '#E1F5EE', color: '#085041' },
-    tsk: { bg: '#E6F1FB', color: '#0C447C' },
-    mtg: { bg: '#FDEAEA', color: '#C0392B' },
-    mtg_item: { bg: '#FDEAEA', color: '#C0392B' },
-    outlook_mtg_yes: { bg: '#FDEAEA', color: '#C0392B' },
-    outlook_mtg_maybe: { bg: '#FDF0F0', color: '#E07070' },
-    outlook_evt: { bg: '#E1F5EE', color: '#085041' },
+    proj:             { background: '#EEEDFE', color: '#3C3489' },
+    evt:              { background: '#F0EEFF', color: '#5B21B6' },
+    tsk:              { background: '#EBF3FD', color: '#0C447C' },
+    mtg:              { background: '#FDEAEA', color: '#A93226' },
+    mtg_item:         { background: '#FDEAEA', color: '#A93226' },
+    outlook_mtg_yes:  { background: '#FDEAEA', color: '#A93226' },
+    outlook_mtg_maybe:{ background: '#FEF3F3', color: '#E07070' },
+    outlook_evt:      { background: '#F0EEFF', color: '#5B21B6' },
   };
+  const clsBorder = { proj: '#4F46E5', evt: '#7C3AED', tsk: '#0C447C', mtg: '#C0392B', mtg_item: '#C0392B', outlook_mtg_yes: '#C0392B', outlook_mtg_maybe: '#E07070', outlook_evt: '#7C3AED' };
+  const clsIcon = { tsk: '☑ ', mtg: '📅 ', mtg_item: '📅 ', proj: '◆ ', evt: '★ ', outlook_mtg_yes: '📅 ', outlook_mtg_maybe: '📅 ', outlook_evt: '★ ' };
+
   const openItemObj = items.find(i => i.id === openItem);
   const openFacility = facilities.find(f => f.id === openItemObj?.facility_id);
 
@@ -141,35 +143,35 @@ export default function CalendarPage({ data }) {
             <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Add</button>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap' }}>
-          {[['task', 'Tasks'], ['event', 'Events'], ['project', 'Projects']].map(([key, label]) => (
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+          {[['task','☑ Tasks','#EBF3FD','#0C447C'], ['event','★ Events','#F0EEFF','#5B21B6'], ['project','◆ Projects','#EEEDFE','#3C3489']].map(([key, label, bg, col]) => (
             <button key={key} onClick={() => toggleFilter(key)}
-              style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: '500', cursor: 'pointer', transition: 'all 0.15s', background: filters[key] ? 'var(--text)' : 'var(--surface)', color: filters[key] ? '#fff' : 'var(--text-3)', border: filters[key] ? '1px solid var(--text)' : '1px solid var(--border)' }}>
+              style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: '600', cursor: 'pointer', background: filters[key] ? bg : 'var(--surface)', color: filters[key] ? col : 'var(--text-3)', border: `1px solid ${filters[key] ? col + '60' : 'var(--border)'}` }}>
               {label}
             </button>
           ))}
           {outlookConnected && (
             <button onClick={() => setShowOutlook(p => !p)}
-              style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: '500', cursor: 'pointer', background: showOutlook ? '#FFF0E6' : 'var(--surface)', color: showOutlook ? '#A84000' : 'var(--text-3)', border: showOutlook ? '1px solid #FFC8A0' : '1px solid var(--border)' }}>
+              style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: '600', cursor: 'pointer', background: showOutlook ? '#FDEAEA' : 'var(--surface)', color: showOutlook ? '#A93226' : 'var(--text-3)', border: `1px solid ${showOutlook ? '#C0392B60' : 'var(--border)'}` }}>
               📅 Outlook
             </button>
           )}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button className="btn-icon" onClick={() => move(-1)}>‹</button>
-          <span style={{ flex: 1, textAlign: 'center', fontWeight: '600', fontSize: '14px' }}>{monthStr}</span>
-          <button className="btn-icon" onClick={() => move(1)}>›</button>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button className="btn-icon" onClick={() => move(-1)}>‹</button>
+            <span style={{ fontWeight: '600', fontSize: '14px', minWidth: '110px', textAlign: 'center' }}>{monthStr}</span>
+            <button className="btn-icon" onClick={() => move(1)}>›</button>
+          </div>
         </div>
       </div>
 
       <div style={{ padding: '0 8px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', marginBottom: '2px' }}>
-          {DOW.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '11px', fontWeight: '600', color: 'var(--text-3)', padding: '6px 0' }}>{d}</div>)}
+          {DOW.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '11px', fontWeight: '700', color: 'var(--text-3)', padding: '6px 0', textTransform: 'uppercase', letterSpacing: '.4px' }}>{d}</div>)}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
           {Array.from({ length: firstDay }).map((_, i) => (
-            <div key={`e${i}`} style={{ minHeight: '64px', background: 'var(--bg)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '3px' }}>
-              <div style={{ fontSize: '10px', color: 'var(--border-md)' }}>{getDaysInMonth(month === 0 ? year - 1 : year, month === 0 ? 11 : month - 1) - firstDay + i + 1}</div>
+            <div key={`e${i}`} style={{ minHeight: '100px', background: 'var(--bg)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '5px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--border-md)' }}>{getDaysInMonth(month === 0 ? year - 1 : year, month === 0 ? 11 : month - 1) - firstDay + i + 1}</div>
             </div>
           ))}
           {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -178,21 +180,19 @@ export default function CalendarPage({ data }) {
             const evs = evMap[ds] || [];
             const isToday = ds === todayStr;
             return (
-              <div key={d}
-                onClick={() => setSelectedDate(ds)}
-                style={{ minHeight: '64px', background: 'var(--surface)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '3px', cursor: 'pointer' }}
+              <div key={d} onClick={() => setSelectedDate(ds)}
+                style={{ minHeight: '100px', background: 'var(--surface)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '5px', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}>
-                <div style={{ width: '18px', height: '18px', borderRadius: '50%', background: isToday ? 'var(--green)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '2px' }}>
-                  <span style={{ fontSize: '10px', fontWeight: isToday ? '700' : '400', color: isToday ? '#fff' : 'var(--text-2)' }}>{d}</span>
+                <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: isToday ? 'var(--green)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '3px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: isToday ? '700' : '500', color: isToday ? '#fff' : 'var(--text-2)' }}>{d}</span>
                 </div>
-                {evs.slice(0, 2).map((ev, ei) => (
-                  <div key={ei}
-                    style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', marginBottom: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: ev.task?.done ? 0.5 : 1, textDecoration: ev.task?.done ? 'line-through' : 'none', ...clsColor[ev.cls] }}>
-                    {ev.label}
+                {evs.slice(0, 3).map((ev, ei) => (
+                  <div key={ei} style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '0 5px 5px 0', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '500', opacity: ev.task?.done ? 0.45 : 1, textDecoration: ev.task?.done ? 'line-through' : 'none', borderLeft: `3px solid ${clsBorder[ev.cls] || '#aaa'}`, ...clsColor[ev.cls] }}>
+                    {clsIcon[ev.cls]}{ev.label}
                   </div>
                 ))}
-                {evs.length > 2 && <div style={{ fontSize: '9px', color: 'var(--text-3)' }}>+{evs.length - 2}</div>}
+                {evs.length > 3 && <div style={{ fontSize: '10px', color: 'var(--text-3)', paddingLeft: '4px', fontWeight: '500' }}>+{evs.length - 3} more</div>}
               </div>
             );
           })}
@@ -207,20 +207,17 @@ export default function CalendarPage({ data }) {
               <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Add to calendar</h2>
               <button className="btn-icon" onClick={resetAdd} style={{ fontSize: '18px' }}>×</button>
             </div>
-            {/* Type selector */}
             <div style={{ display: 'flex', gap: '5px', marginBottom: '14px' }}>
               {[['task', 'Task'], ['meeting', '📅 Meeting'], ['project', 'Project'], ['event', 'Event']].map(([t, l]) => (
                 <button key={t} onClick={() => setAddType(t)}
-                  style={{ flex: 1, padding: '6px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: addType === t ? 'var(--text)' : 'var(--surface)', color: addType === t ? '#fff' : 'var(--text-2)', transition: 'all 0.15s' }}>
+                  style={{ flex: 1, padding: '6px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: addType === t ? 'var(--text)' : 'var(--surface)', color: addType === t ? '#fff' : 'var(--text-2)' }}>
                   {l}
                 </button>
               ))}
             </div>
-
-            {/* TASK form */}
             {addType === 'task' && (
               <div className="form-row">
-                <div className="form-group full"><label>Task name</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="What needs to be done?" /></div>
+                <div className="form-group full"><label>Task name</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
                 <div className="form-group"><label>Due date</label><input type="date" value={taskForm.due_date} onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} /></div>
                 <div className="form-group"><label>Assigned to</label><input value={taskForm.assigned_to} onChange={e => setTaskForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
                 <div className="form-group"><label>Priority</label>
@@ -237,11 +234,9 @@ export default function CalendarPage({ data }) {
                 <div className="form-group full"><label>Notes</label><textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} /></div>
               </div>
             )}
-
-            {/* MEETING form */}
             {addType === 'meeting' && (
               <div className="form-row">
-                <div className="form-group full"><label>Meeting name</label><input value={meetingForm.name} onChange={e => setMeetingForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="What is the meeting about?" /></div>
+                <div className="form-group full"><label>Meeting name</label><input value={meetingForm.name} onChange={e => setMeetingForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
                 <div className="form-group"><label>Date</label><input type="date" value={meetingForm.due_date} onChange={e => setMeetingForm(p => ({ ...p, due_date: e.target.value }))} /></div>
                 <div className="form-group"><label>Time</label><input type="time" value={meetingForm.meeting_time} onChange={e => setMeetingForm(p => ({ ...p, meeting_time: e.target.value }))} /></div>
                 <div className="form-group"><label>Assigned to</label><input value={meetingForm.assigned_to} onChange={e => setMeetingForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
@@ -255,16 +250,13 @@ export default function CalendarPage({ data }) {
                 <div className="form-group full"><label>Notes</label><textarea value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} /></div>
               </div>
             )}
-
-            {/* PROJECT / EVENT form — tabbed like Pipeline */}
             {(addType === 'project' || addType === 'event') && (
               <div>
-                {/* Tabs */}
                 <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', marginBottom: '14px' }}>
                   {[['details','Details'],['steps','Steps'],['tasks','Tasks'],['notes','Notes'],['ideas','Ideas']].map(([t, l]) => (
                     <button key={t} onClick={() => setActiveTab(t)}
                       style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: activeTab === t ? '600' : '400', cursor: 'pointer', background: activeTab === t ? 'var(--text)' : 'var(--surface)', color: activeTab === t ? '#fff' : 'var(--text-2)', border: activeTab !== t ? '1px solid var(--border)' : 'none', whiteSpace: 'nowrap' }}>
-                      {l}{t === 'steps' && quickSteps.length > 0 ? ` (${quickSteps.length})` : ''}{t === 'tasks' && quickTasks.length > 0 ? ` (${quickTasks.length})` : ''}{t === 'notes' && quickNotes.length > 0 ? ` (${quickNotes.length})` : ''}{t === 'ideas' && quickIdeas.length > 0 ? ` (${quickIdeas.length})` : ''}
+                      {l}{t === 'steps' && quickSteps.length ? ` (${quickSteps.length})` : ''}{t === 'tasks' && quickTasks.length ? ` (${quickTasks.length})` : ''}{t === 'notes' && quickNotes.length ? ` (${quickNotes.length})` : ''}{t === 'ideas' && quickIdeas.length ? ` (${quickIdeas.length})` : ''}
                     </button>
                   ))}
                 </div>
@@ -314,8 +306,7 @@ export default function CalendarPage({ data }) {
                     <button className="btn btn-sm btn-primary" style={{ marginBottom: '10px' }} onClick={() => { if (taskInput.name.trim()) { setQuickTasks(p => [...p, { ...taskInput }]); setTaskInput({ name: '', due_date: '', priority: 'Medium' }); }}}>Add task</button>
                     {quickTasks.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No tasks yet.</div> : quickTasks.map((t, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
-                        <span style={{ flex: 1 }}>{t.name}</span>
-                        <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{t.priority}</span>
+                        <span style={{ flex: 1 }}>{t.name}</span><span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{t.priority}</span>
                         <button className="btn-icon" style={{ fontSize: '12px' }} onClick={() => setQuickTasks(p => p.filter((_, j) => j !== i))}>×</button>
                       </div>
                     ))}
@@ -337,7 +328,7 @@ export default function CalendarPage({ data }) {
                   <div>
                     <div className="form-row" style={{ marginBottom: '8px' }}>
                       <div className="form-group full"><label>Idea title</label><input value={ideaInput.title} onChange={e => setIdeaInput(p => ({ ...p, title: e.target.value }))} autoFocus /></div>
-                      <div className="form-group full"><label>Details (optional)</label><textarea value={ideaInput.body} onChange={e => setIdeaInput(p => ({ ...p, body: e.target.value }))} /></div>
+                      <div className="form-group full"><label>Details</label><textarea value={ideaInput.body} onChange={e => setIdeaInput(p => ({ ...p, body: e.target.value }))} /></div>
                     </div>
                     <button className="btn btn-sm btn-primary" style={{ marginBottom: '10px' }} onClick={() => { if (ideaInput.title.trim()) { setQuickIdeas(p => [...p, { ...ideaInput }]); setIdeaInput({ title: '', body: '' }); }}}>Add idea</button>
                     {quickIdeas.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No ideas yet.</div> : quickIdeas.map((id, i) => (
@@ -350,12 +341,9 @@ export default function CalendarPage({ data }) {
                 )}
               </div>
             )}
-
             <div className="form-actions" style={{ marginTop: '14px' }}>
               <button className="btn btn-sm" onClick={resetAdd}>Cancel</button>
-              <button className="btn btn-sm btn-primary" onClick={handleSave}>
-                Save {addType === 'meeting' ? 'meeting' : addType === 'task' ? 'task' : addType}
-              </button>
+              <button className="btn btn-sm btn-primary" onClick={handleSave}>Save {addType === 'meeting' ? 'meeting' : addType === 'task' ? 'task' : addType}</button>
             </div>
           </div>
         </div>
@@ -373,7 +361,7 @@ export default function CalendarPage({ data }) {
         />
       )}
 
-      {/* Date popup — always opens on date click, 3 columns */}
+      {/* Date popup — 3 columns */}
       {selectedDate && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setSelectedDate(null)}>
           <div className="sheet-center" style={{ padding: '20px', maxHeight: '80vh', overflowY: 'auto' }}>
@@ -402,7 +390,7 @@ export default function CalendarPage({ data }) {
                 const isTask = ev.cls === 'tsk' || ev.cls === 'mtg';
                 const isTentative = ev.cls === 'outlook_mtg_maybe';
                 return (
-                  <div key={i} className="card" style={{ padding: '8px 10px', marginBottom: '6px', cursor: isOutlook ? 'default' : 'pointer', fontSize: '12px', borderLeft: `3px solid ${clsColor[ev.cls]?.color}`, opacity: isTentative ? 0.75 : 1 }}
+                  <div key={i} className="card" style={{ padding: '8px 10px', marginBottom: '6px', cursor: isOutlook ? 'default' : 'pointer', fontSize: '12px', borderLeft: `3px solid ${clsBorder[ev.cls] || '#aaa'}`, opacity: isTentative ? 0.75 : 1 }}
                     onClick={() => {
                       if (isOutlook) return;
                       if (isTask && ev.id) { setOpenItem(ev.id); setSelectedDate(null); }
@@ -417,7 +405,7 @@ export default function CalendarPage({ data }) {
                       </div>
                     )}
                     <div style={{ fontWeight: '600', textDecoration: ev.task?.done ? 'line-through' : 'none', color: ev.task?.done ? 'var(--text-3)' : 'var(--text)', marginBottom: '2px' }}>
-                      {ev.label}{isTentative && <span style={{ fontSize: '9px', marginLeft: '4px', color: '#E07070' }}>?</span>}
+                      {clsIcon[ev.cls]}{ev.label}{isTentative && <span style={{ fontSize: '9px', marginLeft: '4px', color: '#E07070' }}>?</span>}
                     </div>
                     {isOutlook && ev.preview && <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{ev.preview.slice(0, 50)}…</div>}
                     {isOutlook && ev.cls !== 'outlook_evt' && <div style={{ fontSize: '9px', color: isTentative ? '#E07070' : '#C0392B', marginTop: '2px' }}>{isTentative ? 'Not responded' : 'Accepted'} · Outlook</div>}
@@ -427,19 +415,18 @@ export default function CalendarPage({ data }) {
                   </div>
                 );
               };
-
               return (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                   <div>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#0C447C', background: '#E6F1FB', padding: '5px 8px', borderRadius: 'var(--radius)', marginBottom: '8px', textAlign: 'center' }}>☑ Tasks ({evTasks.length})</div>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#0C447C', background: '#EBF3FD', padding: '5px 8px', borderRadius: 'var(--radius)', marginBottom: '8px', textAlign: 'center' }}>☑ Tasks ({evTasks.length})</div>
                     {evTasks.length === 0 ? <div style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center', padding: '8px 0' }}>None</div> : evTasks.map(renderEv)}
                   </div>
                   <div>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#C0392B', background: '#FDEAEA', padding: '5px 8px', borderRadius: 'var(--radius)', marginBottom: '8px', textAlign: 'center' }}>📅 Meetings ({evMeetings.length})</div>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#A93226', background: '#FDEAEA', padding: '5px 8px', borderRadius: 'var(--radius)', marginBottom: '8px', textAlign: 'center' }}>📅 Meetings ({evMeetings.length})</div>
                     {evMeetings.length === 0 ? <div style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center', padding: '8px 0' }}>None</div> : evMeetings.map(renderEv)}
                   </div>
                   <div>
-                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#085041', background: '#E1F5EE', padding: '5px 8px', borderRadius: 'var(--radius)', marginBottom: '8px', textAlign: 'center' }}>📁 Events ({evEvents.length})</div>
+                    <div style={{ fontSize: '11px', fontWeight: '700', color: '#5B21B6', background: '#F0EEFF', padding: '5px 8px', borderRadius: 'var(--radius)', marginBottom: '8px', textAlign: 'center' }}>★ Events ({evEvents.length})</div>
                     {evEvents.length === 0 ? <div style={{ fontSize: '11px', color: 'var(--text-3)', textAlign: 'center', padding: '8px 0' }}>None</div> : evEvents.map(renderEv)}
                   </div>
                 </div>
