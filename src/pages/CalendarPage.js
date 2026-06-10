@@ -8,7 +8,7 @@ function getDaysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
 function getFirstDay(y, m) { return new Date(y, m, 1).getDay(); }
 
 export default function CalendarPage({ data }) {
-  const { facilities, items, steps, tasks, notes, ideas, addItem, addTask, addStep, toggleStep, deleteStep, updateItem, deleteItem, updateTask, toggleTask, deleteTask, addNote, deleteNote, calcProgress } = data;
+  const { facilities, items, steps, tasks, notes, ideas, addItem, addTask, addStep, toggleStep, deleteStep, updateItem, deleteItem, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, calcProgress } = data;
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -23,6 +23,26 @@ export default function CalendarPage({ data }) {
   const [outlookEvents, setOutlookEvents] = useState([]);
   const [outlookConnected, setOutlookConnected] = useState(isOutlookConnected());
   const [showOutlook, setShowOutlook] = useState(true);
+  const [meetingForm, setMeetingForm] = useState({ name: '', due_date: '', meeting_time: '', assigned_to: '', attendees: '', notes: '', item_id: '' });
+  const [activeTab, setActiveTab] = useState('details');
+  const [quickSteps, setQuickSteps] = useState([]);
+  const [quickTasks, setQuickTasks] = useState([]);
+  const [quickNotes, setQuickNotes] = useState([]);
+  const [quickIdeas, setQuickIdeas] = useState([]);
+  const [stepInput, setStepInput] = useState('');
+  const [taskInput, setTaskInput] = useState({ name: '', due_date: '', priority: 'Medium' });
+  const [noteInput, setNoteInput] = useState('');
+  const [ideaInput, setIdeaInput] = useState({ title: '', body: '' });
+
+  const resetAdd = () => {
+    setShowAdd(false);
+    setActiveTab('details');
+    setQuickSteps([]); setQuickTasks([]); setQuickNotes([]); setQuickIdeas([]);
+    setStepInput(''); setTaskInput({ name: '', due_date: '', priority: 'Medium' });
+    setNoteInput(''); setIdeaInput({ title: '', body: '' });
+    setMeetingForm({ name: '', due_date: '', meeting_time: '', assigned_to: '', attendees: '', notes: '', item_id: '' });
+    setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
+  };
 
   const todayStr = now.toISOString().slice(0, 10);
   const daysInMonth = getDaysInMonth(year, month);
@@ -53,14 +73,22 @@ export default function CalendarPage({ data }) {
   const handleSave = async () => {
     if (addType === 'task') {
       if (!taskForm.name.trim()) return;
-      await addTask({ name: taskForm.name.trim(), due_date: taskForm.due_date || null, assigned_to: taskForm.assigned_to || null, priority: taskForm.priority || 'Medium', notes: taskForm.notes || null, item_id: taskForm.item_id || null, step_id: null, done: false });
-      setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
+      await addTask({ name: taskForm.name.trim(), due_date: taskForm.due_date || null, assigned_to: taskForm.assigned_to || null, priority: taskForm.priority || 'Medium', notes: taskForm.notes || null, item_id: taskForm.item_id || null, step_id: null, done: false, task_type: 'task' });
+    } else if (addType === 'meeting') {
+      if (!meetingForm.name.trim()) return;
+      await addTask({ name: meetingForm.name.trim(), due_date: meetingForm.due_date || null, meeting_time: meetingForm.meeting_time || null, assigned_to: meetingForm.assigned_to || null, attendees: meetingForm.attendees || null, notes: meetingForm.notes || null, item_id: meetingForm.item_id || null, step_id: null, done: false, task_type: 'meeting', priority: 'Medium' });
     } else {
       if (!itemForm.name.trim() || !itemForm.facility_id) return;
-      await addItem({ ...itemForm, type: addType });
+      const newItem = await addItem({ ...itemForm, type: addType });
+      if (newItem) {
+        for (const s of quickSteps) await addStep({ item_id: newItem.id, name: s });
+        for (const t of quickTasks) await addTask({ item_id: newItem.id, name: t.name, due_date: t.due_date || null, priority: t.priority, step_id: null, done: false, task_type: 'task' });
+        for (const n of quickNotes) await addNote({ item_id: newItem.id, text: n });
+        for (const id of quickIdeas) await addIdea({ title: id.title, responsibility: itemForm.responsibility, body: id.body });
+      }
       setItemForm({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' });
     }
-    setShowAdd(false);
+    resetAdd();
   };
 
   const evMap = {};
@@ -68,6 +96,7 @@ export default function CalendarPage({ data }) {
   items.forEach(item => {
     if (filters.project && item.type === 'project' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'proj', id: item.id });
     if (filters.event && item.type === 'event' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'evt', id: item.id });
+    if (item.type === 'meeting' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'mtg_item', id: item.id });
   });
   if (filters.task) tasks.forEach(t => {
     if (t.due_date) {
@@ -94,6 +123,7 @@ export default function CalendarPage({ data }) {
     evt: { bg: '#E1F5EE', color: '#085041' },
     tsk: { bg: '#E6F1FB', color: '#0C447C' },
     mtg: { bg: '#FDEAEA', color: '#C0392B' },
+    mtg_item: { bg: '#FDEAEA', color: '#C0392B' },
     outlook_mtg_yes: { bg: '#FDEAEA', color: '#C0392B' },
     outlook_mtg_maybe: { bg: '#FDF0F0', color: '#E07070' },
     outlook_evt: { bg: '#E1F5EE', color: '#085041' },
@@ -148,7 +178,8 @@ export default function CalendarPage({ data }) {
             const evs = evMap[ds] || [];
             const isToday = ds === todayStr;
             return (
-              <div key={d} onClick={() => setSelectedDate(ds)}
+              <div key={d}
+                onClick={() => setSelectedDate(ds)}
                 style={{ minHeight: '64px', background: 'var(--surface)', borderRight: '1px solid var(--border)', borderBottom: '1px solid var(--border)', padding: '3px', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
                 onMouseLeave={e => e.currentTarget.style.background = 'var(--surface)'}>
@@ -157,8 +188,7 @@ export default function CalendarPage({ data }) {
                 </div>
                 {evs.slice(0, 2).map((ev, ei) => (
                   <div key={ei}
-                    onClick={e => { e.stopPropagation(); if (ev.cls !== 'outlook_mtg_yes' && ev.cls !== 'outlook_mtg_maybe' && ev.cls !== 'outlook_evt' && ev.id) setOpenItem(ev.id); else if ((ev.cls === 'tsk' || ev.cls === 'mtg') && !ev.id) setSelectedTask(ev.task); }}
-                    style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', marginBottom: '1px', cursor: 'pointer', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: ev.task?.done ? 0.5 : 1, textDecoration: ev.task?.done ? 'line-through' : 'none', ...clsColor[ev.cls] }}>
+                    style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', marginBottom: '1px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', opacity: ev.task?.done ? 0.5 : 1, textDecoration: ev.task?.done ? 'line-through' : 'none', ...clsColor[ev.cls] }}>
                     {ev.label}
                   </div>
                 ))}
@@ -171,21 +201,24 @@ export default function CalendarPage({ data }) {
 
       {/* Add modal */}
       {showAdd && (
-        <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setShowAdd(false)}>
-          <div className="sheet-center" style={{ padding: '20px' }}>
+        <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && resetAdd()}>
+          <div className="sheet-center" style={{ padding: '20px', maxHeight: '85vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Add to calendar</h2>
-              <button className="btn-icon" onClick={() => setShowAdd(false)} style={{ fontSize: '18px' }}>×</button>
+              <button className="btn-icon" onClick={resetAdd} style={{ fontSize: '18px' }}>×</button>
             </div>
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
-              {[['task', 'Task'], ['project', 'Project'], ['event', 'Event']].map(([t, l]) => (
+            {/* Type selector */}
+            <div style={{ display: 'flex', gap: '5px', marginBottom: '14px' }}>
+              {[['task', 'Task'], ['meeting', '📅 Meeting'], ['project', 'Project'], ['event', 'Event']].map(([t, l]) => (
                 <button key={t} onClick={() => setAddType(t)}
-                  style={{ flex: 1, padding: '7px', fontSize: '13px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: addType === t ? 'var(--text)' : 'var(--surface)', color: addType === t ? '#fff' : 'var(--text-2)', transition: 'all 0.15s' }}>
+                  style={{ flex: 1, padding: '6px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: addType === t ? 'var(--text)' : 'var(--surface)', color: addType === t ? '#fff' : 'var(--text-2)', transition: 'all 0.15s' }}>
                   {l}
                 </button>
               ))}
             </div>
-            {addType === 'task' ? (
+
+            {/* TASK form */}
+            {addType === 'task' && (
               <div className="form-row">
                 <div className="form-group full"><label>Task name</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="What needs to be done?" /></div>
                 <div className="form-group"><label>Due date</label><input type="date" value={taskForm.due_date} onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} /></div>
@@ -203,27 +236,126 @@ export default function CalendarPage({ data }) {
                 </div>
                 <div className="form-group full"><label>Notes</label><textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} /></div>
               </div>
-            ) : (
+            )}
+
+            {/* MEETING form */}
+            {addType === 'meeting' && (
               <div className="form-row">
-                <div className="form-group full"><label>Name</label><input value={itemForm.name} onChange={e => setItemForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
-                <div className="form-group"><label>Facility</label>
-                  <select value={itemForm.facility_id} onChange={e => setItemForm(p => ({ ...p, facility_id: e.target.value }))}>
-                    <option value="">Select…</option>
-                    {facilities.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                <div className="form-group full"><label>Meeting name</label><input value={meetingForm.name} onChange={e => setMeetingForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="What is the meeting about?" /></div>
+                <div className="form-group"><label>Date</label><input type="date" value={meetingForm.due_date} onChange={e => setMeetingForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+                <div className="form-group"><label>Time</label><input type="time" value={meetingForm.meeting_time} onChange={e => setMeetingForm(p => ({ ...p, meeting_time: e.target.value }))} /></div>
+                <div className="form-group"><label>Assigned to</label><input value={meetingForm.assigned_to} onChange={e => setMeetingForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
+                <div className="form-group full"><label>Attendees (optional)</label><input value={meetingForm.attendees} onChange={e => setMeetingForm(p => ({ ...p, attendees: e.target.value }))} placeholder="Names separated by commas…" /></div>
+                <div className="form-group full"><label>Link to project (optional)</label>
+                  <select value={meetingForm.item_id} onChange={e => setMeetingForm(p => ({ ...p, item_id: e.target.value }))}>
+                    <option value="">— Standalone —</option>
+                    {items.map(i => { const fac = facilities.find(f => f.id === i.facility_id); return <option key={i.id} value={i.id}>{fac ? fac.name + ' · ' : ''}{i.name}</option>; })}
                   </select>
                 </div>
-                <div className="form-group"><label>Responsibility</label>
-                  <select value={itemForm.responsibility} onChange={e => setItemForm(p => ({ ...p, responsibility: e.target.value }))}>
-                    {RESP_COLS.map(r => <option key={r}>{r}</option>)}
-                  </select>
-                </div>
-                <div className="form-group"><label>Due date</label><input type="date" value={itemForm.due_date} onChange={e => setItemForm(p => ({ ...p, due_date: e.target.value }))} /></div>
-                <div className="form-group"><label>Assigned to</label><input value={itemForm.assigned_to} onChange={e => setItemForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
+                <div className="form-group full"><label>Notes</label><textarea value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} /></div>
               </div>
             )}
-            <div className="form-actions">
-              <button className="btn btn-sm" onClick={() => setShowAdd(false)}>Cancel</button>
-              <button className="btn btn-sm btn-primary" onClick={handleSave}>Save</button>
+
+            {/* PROJECT / EVENT form — tabbed like Pipeline */}
+            {(addType === 'project' || addType === 'event') && (
+              <div>
+                {/* Tabs */}
+                <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', marginBottom: '14px' }}>
+                  {[['details','Details'],['steps','Steps'],['tasks','Tasks'],['notes','Notes'],['ideas','Ideas']].map(([t, l]) => (
+                    <button key={t} onClick={() => setActiveTab(t)}
+                      style={{ fontSize: '12px', padding: '5px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: activeTab === t ? '600' : '400', cursor: 'pointer', background: activeTab === t ? 'var(--text)' : 'var(--surface)', color: activeTab === t ? '#fff' : 'var(--text-2)', border: activeTab !== t ? '1px solid var(--border)' : 'none', whiteSpace: 'nowrap' }}>
+                      {l}{t === 'steps' && quickSteps.length > 0 ? ` (${quickSteps.length})` : ''}{t === 'tasks' && quickTasks.length > 0 ? ` (${quickTasks.length})` : ''}{t === 'notes' && quickNotes.length > 0 ? ` (${quickNotes.length})` : ''}{t === 'ideas' && quickIdeas.length > 0 ? ` (${quickIdeas.length})` : ''}
+                    </button>
+                  ))}
+                </div>
+                {activeTab === 'details' && (
+                  <div className="form-row">
+                    <div className="form-group full"><label>Name *</label><input value={itemForm.name} onChange={e => setItemForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
+                    <div className="form-group"><label>Facility *</label>
+                      <select value={itemForm.facility_id} onChange={e => setItemForm(p => ({ ...p, facility_id: e.target.value }))}>
+                        <option value="">Select…</option>
+                        {facilities.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group"><label>Responsibility</label>
+                      <select value={itemForm.responsibility} onChange={e => setItemForm(p => ({ ...p, responsibility: e.target.value }))}>
+                        {RESP_COLS.map(r => <option key={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group"><label>Due date</label><input type="date" value={itemForm.due_date} onChange={e => setItemForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+                    <div className="form-group"><label>Assigned to</label><input value={itemForm.assigned_to} onChange={e => setItemForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
+                  </div>
+                )}
+                {activeTab === 'steps' && (
+                  <div>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                      <input value={stepInput} onChange={e => setStepInput(e.target.value)} placeholder="Step name…" onKeyDown={e => { if (e.key === 'Enter' && stepInput.trim()) { setQuickSteps(p => [...p, stepInput.trim()]); setStepInput(''); }}} autoFocus />
+                      <button className="btn btn-sm btn-primary" onClick={() => { if (stepInput.trim()) { setQuickSteps(p => [...p, stepInput.trim()]); setStepInput(''); }}}>Add</button>
+                    </div>
+                    {quickSteps.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No steps yet.</div> : quickSteps.map((s, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '13px' }}>
+                        <span style={{ flex: 1 }}>{i + 1}. {s}</span>
+                        <button className="btn-icon" style={{ fontSize: '12px' }} onClick={() => setQuickSteps(p => p.filter((_, j) => j !== i))}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {activeTab === 'tasks' && (
+                  <div>
+                    <div className="form-row" style={{ marginBottom: '8px' }}>
+                      <div className="form-group full"><label>Task name</label><input value={taskInput.name} onChange={e => setTaskInput(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
+                      <div className="form-group"><label>Due date</label><input type="date" value={taskInput.due_date} onChange={e => setTaskInput(p => ({ ...p, due_date: e.target.value }))} /></div>
+                      <div className="form-group"><label>Priority</label>
+                        <select value={taskInput.priority} onChange={e => setTaskInput(p => ({ ...p, priority: e.target.value }))}>
+                          <option>High</option><option>Medium</option><option>Low</option>
+                        </select>
+                      </div>
+                    </div>
+                    <button className="btn btn-sm btn-primary" style={{ marginBottom: '10px' }} onClick={() => { if (taskInput.name.trim()) { setQuickTasks(p => [...p, { ...taskInput }]); setTaskInput({ name: '', due_date: '', priority: 'Medium' }); }}}>Add task</button>
+                    {quickTasks.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No tasks yet.</div> : quickTasks.map((t, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
+                        <span style={{ flex: 1 }}>{t.name}</span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{t.priority}</span>
+                        <button className="btn-icon" style={{ fontSize: '12px' }} onClick={() => setQuickTasks(p => p.filter((_, j) => j !== i))}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {activeTab === 'notes' && (
+                  <div>
+                    <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} placeholder="Write a note…" style={{ minHeight: '80px', width: '100%' }} autoFocus />
+                    <button className="btn btn-sm btn-primary" style={{ marginTop: '8px', marginBottom: '10px' }} onClick={() => { if (noteInput.trim()) { setQuickNotes(p => [...p, noteInput.trim()]); setNoteInput(''); }}}>Add note</button>
+                    {quickNotes.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No notes yet.</div> : quickNotes.map((n, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
+                        <span style={{ flex: 1 }}>{n}</span>
+                        <button className="btn-icon" style={{ fontSize: '12px' }} onClick={() => setQuickNotes(p => p.filter((_, j) => j !== i))}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {activeTab === 'ideas' && (
+                  <div>
+                    <div className="form-row" style={{ marginBottom: '8px' }}>
+                      <div className="form-group full"><label>Idea title</label><input value={ideaInput.title} onChange={e => setIdeaInput(p => ({ ...p, title: e.target.value }))} autoFocus /></div>
+                      <div className="form-group full"><label>Details (optional)</label><textarea value={ideaInput.body} onChange={e => setIdeaInput(p => ({ ...p, body: e.target.value }))} /></div>
+                    </div>
+                    <button className="btn btn-sm btn-primary" style={{ marginBottom: '10px' }} onClick={() => { if (ideaInput.title.trim()) { setQuickIdeas(p => [...p, { ...ideaInput }]); setIdeaInput({ title: '', body: '' }); }}}>Add idea</button>
+                    {quickIdeas.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No ideas yet.</div> : quickIdeas.map((id, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
+                        <span>💡</span><span style={{ flex: 1 }}>{id.title}</span>
+                        <button className="btn-icon" style={{ fontSize: '12px' }} onClick={() => setQuickIdeas(p => p.filter((_, j) => j !== i))}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="form-actions" style={{ marginTop: '14px' }}>
+              <button className="btn btn-sm" onClick={resetAdd}>Cancel</button>
+              <button className="btn btn-sm btn-primary" onClick={handleSave}>
+                Save {addType === 'meeting' ? 'meeting' : addType === 'task' ? 'task' : addType}
+              </button>
             </div>
           </div>
         </div>
@@ -241,7 +373,7 @@ export default function CalendarPage({ data }) {
         />
       )}
 
-      {/* Date click popup — 3 columns */}
+      {/* Date popup — always opens on date click, 3 columns */}
       {selectedDate && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setSelectedDate(null)}>
           <div className="sheet-center" style={{ padding: '20px', maxHeight: '80vh', overflowY: 'auto' }}>
@@ -260,7 +392,7 @@ export default function CalendarPage({ data }) {
                 </div>
               );
               const evTasks = dayEvs.filter(ev => ev.cls === 'tsk');
-              const evMeetings = dayEvs.filter(ev => ev.cls === 'mtg' || ev.cls === 'outlook_mtg_yes' || ev.cls === 'outlook_mtg_maybe');
+              const evMeetings = dayEvs.filter(ev => ev.cls === 'mtg' || ev.cls === 'mtg_item' || ev.cls === 'outlook_mtg_yes' || ev.cls === 'outlook_mtg_maybe');
               const evEvents = dayEvs.filter(ev => ev.cls === 'evt' || ev.cls === 'proj' || ev.cls === 'outlook_evt');
 
               const renderEv = (ev, i) => {
@@ -321,7 +453,7 @@ export default function CalendarPage({ data }) {
         </div>
       )}
 
-      {/* Standalone task detail popup */}
+      {/* Standalone task popup */}
       {selectedTask && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setSelectedTask(null)}>
           <div className="sheet-center" style={{ padding: '20px' }}>
