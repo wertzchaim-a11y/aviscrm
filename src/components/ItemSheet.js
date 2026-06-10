@@ -16,7 +16,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
   const [showNoteForm, setShowNoteForm] = useState(false);
   const [newStep, setNewStep] = useState('');
   const [newNote, setNewNote] = useState('');
-  const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', step_id: '', notes: '' });
+  const [taskForm, setTaskForm] = useState({ name: '', due_date: '', meeting_time: '', assigned_to: '', priority: 'Medium', step_id: '', notes: '', task_type: 'task', attendees: '' });
   const [editForm, setEditForm] = useState({});
   const [manualVal, setManualVal] = useState(item.progress);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -69,8 +69,8 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
   };
   const handleAddTask = async () => {
     if (!taskForm.name.trim()) return;
-    await onAddTask({ ...taskForm, item_id: item.id, step_id: taskForm.step_id || null });
-    setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', step_id: '', notes: '' });
+    await onAddTask({ ...taskForm, item_id: item.id, step_id: taskForm.step_id || null, task_type: taskForm.task_type || 'task', meeting_time: taskForm.meeting_time || null, attendees: taskForm.attendees || null });
+    setTaskForm({ name: '', due_date: '', meeting_time: '', assigned_to: '', priority: 'Medium', step_id: '', notes: '', task_type: 'task', attendees: '' });
     setShowTaskForm(false);
   };
   const handleAddNote = async () => {
@@ -264,26 +264,36 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
           })}
           {showTaskForm && (
             <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius)', padding: '12px', marginTop: '6px' }}>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                {[['task', '☑ Task'], ['meeting', '📅 Meeting']].map(([t, l]) => (
+                  <button key={t} onClick={() => setTaskForm(p => ({ ...p, task_type: t }))}
+                    style={{ flex: 1, padding: '5px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: taskForm.task_type === t ? (t === 'meeting' ? '#C0392B' : 'var(--text)') : 'var(--surface)', color: taskForm.task_type === t ? '#fff' : 'var(--text-2)' }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
               <div className="form-row" style={{ marginBottom: '8px' }}>
-                <div className="form-group full"><label>Task name</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
-                <div className="form-group"><label>Due date</label><input type="date" value={taskForm.due_date} onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+                <div className="form-group full"><label>{taskForm.task_type === 'meeting' ? 'Meeting name' : 'Task name'}</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
+                <div className="form-group"><label>Date</label><input type="date" value={taskForm.due_date} onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+                {taskForm.task_type === 'meeting' && <div className="form-group"><label>Time</label><input type="time" value={taskForm.meeting_time} onChange={e => setTaskForm(p => ({ ...p, meeting_time: e.target.value }))} /></div>}
                 <div className="form-group"><label>Assigned to</label><input value={taskForm.assigned_to} onChange={e => setTaskForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
-                <div className="form-group"><label>Priority</label>
+                {taskForm.task_type !== 'meeting' && <div className="form-group"><label>Priority</label>
                   <select value={taskForm.priority} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value }))}>
                     <option>High</option><option>Medium</option><option>Low</option>
                   </select>
-                </div>
+                </div>}
                 <div className="form-group"><label>Step / Stage</label>
                   <select value={taskForm.step_id} onChange={e => setTaskForm(p => ({ ...p, step_id: e.target.value }))}>
                     <option value="">— none —</option>
                     {itemSteps.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                 </div>
+                {taskForm.task_type === 'meeting' && <div className="form-group full"><label>Attendees (optional)</label><input value={taskForm.attendees} onChange={e => setTaskForm(p => ({ ...p, attendees: e.target.value }))} placeholder="Names separated by commas…" /></div>}
                 <div className="form-group full"><label>Notes</label><textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} /></div>
               </div>
               <div className="form-actions">
                 <button className="btn btn-sm" onClick={() => setShowTaskForm(false)}>Cancel</button>
-                <button className="btn btn-sm btn-primary" onClick={handleAddTask}>Save task</button>
+                <button className="btn btn-sm btn-primary" onClick={handleAddTask}>Save {taskForm.task_type === 'meeting' ? 'meeting' : 'task'}</button>
               </div>
             </div>
           )}
