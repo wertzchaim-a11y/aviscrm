@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import ItemSheet from '../components/ItemSheet';
 import OutlookConnect from '../components/OutlookConnect';
-import { getValidAccessToken, fetchOutlookEvents, isOutlookConnected } from '../lib/outlookSync';
+import { getValidAccessToken, isOutlookConnected, syncOutlookToSupabase, shouldSync } from '../lib/outlookSync';
 
 const RESP_COLS = ['Marketing', 'Employee retention', 'Recruitment', 'Other'];
 function getDaysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
 function getFirstDay(y, m) { return new Date(y, m, 1).getDay(); }
 
 export default function CalendarPage({ data }) {
-  const { facilities, items, steps, tasks, notes, ideas, addItem, addTask, addStep, toggleStep, deleteStep, updateItem, deleteItem, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, calcProgress } = data;
+  const { facilities, items, steps, tasks, notes, ideas, outlookDbEvents, addItem, addTask, addStep, toggleStep, deleteStep, updateItem, deleteItem, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, calcProgress, refreshOutlookEvents } = data;
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
@@ -20,9 +20,9 @@ export default function CalendarPage({ data }) {
   const [addType, setAddType] = useState('task');
   const [itemForm, setItemForm] = useState({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' });
   const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
-  const [outlookEvents, setOutlookEvents] = useState([]);
   const [outlookConnected, setOutlookConnected] = useState(isOutlookConnected());
   const [showOutlook, setShowOutlook] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [meetingForm, setMeetingForm] = useState({ name: '', due_date: '', meeting_time: '', assigned_to: '', attendees: '', notes: '', item_id: '' });
   const [activeTab, setActiveTab] = useState('details');
   const [quickSteps, setQuickSteps] = useState([]);
@@ -39,18 +39,20 @@ export default function CalendarPage({ data }) {
   const firstDay = getFirstDay(year, month);
   const monthStr = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
+  // Auto-sync Outlook on open if connected and it's been over an hour
   useEffect(() => {
-    if (!outlookConnected) return;
-    const fetchOL = async () => {
+    const doSync = async () => {
+      if (!outlookConnected) return;
+      if (!shouldSync()) return;
       const token = await getValidAccessToken();
-      if (!token) return;
-      const start = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-      const end = `${year}-${String(month + 1).padStart(2, '0')}-${String(getDaysInMonth(year, month)).padStart(2, '0')}`;
-      const events = await fetchOutlookEvents(token, start, end);
-      if (events) setOutlookEvents(events);
+      if (!token) { setOutlookConnected(false); return; }
+      setSyncing(true);
+      await syncOutlookToSupabase(token);
+      await refreshOutlookEvents();
+      setSyncing(false);
     };
-    fetchOL();
-  }, [year, month, outlookConnected]);
+    doSync();
+  }, []);
 
   const resetAdd = () => {
     setShowAdd(false); setActiveTab('details');
@@ -105,14 +107,11 @@ export default function CalendarPage({ data }) {
     }
   });
   if (outlookConnected && showOutlook) {
-    outlookEvents.forEach(ev => {
-      const date = ev.isAllDay ? ev.start.date : ev.start.dateTime?.slice(0, 10);
-      const hasAttendees = ev.attendees && ev.attendees.length > 0;
-      const isOnline = ev.isOnlineMeeting;
-      const response = ev.responseStatus?.response || 'none';
-      const accepted = response === 'accepted' || response === 'organizer';
-      const cls = (hasAttendees || isOnline) ? (accepted ? 'outlook_mtg_yes' : 'outlook_mtg_maybe') : 'outlook_evt';
-      if (date) addEv(date, { label: ev.subject, cls, id: null, preview: ev.bodyPreview, response });
+    outlookDbEvents.forEach(ev => {
+      const date = ev.start_date;
+      const accepted = ev.response_status === 'accepted' || ev.response_status === 'organizer';
+      const cls = (ev.has_attendees || ev.is_online_meeting) ? (accepted ? 'outlook_mtg_yes' : 'outlook_mtg_maybe') : 'outlook_evt';
+      if (date) addEv(date, { label: ev.subject, cls, id: null, preview: ev.body_preview, response: ev.response_status });
     });
   }
 
@@ -139,7 +138,23 @@ export default function CalendarPage({ data }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <h1 style={{ fontSize: '18px', fontWeight: '600' }}>Calendar</h1>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <OutlookConnect onConnected={() => setOutlookConnected(true)} />
+            <OutlookConnect onConnected={async () => {
+              setOutlookConnected(true);
+              setSyncing(true);
+              const token = await getValidAccessToken();
+              if (token) { await syncOutlookToSupabase(token); await refreshOutlookEvents(); }
+              setSyncing(false);
+            }} />
+            {outlookConnected && (
+              <button className="btn btn-sm" style={{ fontSize: '11px' }} onClick={async () => {
+                setSyncing(true);
+                const token = await getValidAccessToken();
+                if (token) { await syncOutlookToSupabase(token); await refreshOutlookEvents(); }
+                setSyncing(false);
+              }}>
+                {syncing ? '🔄 Syncing…' : '🔄 Sync'}
+              </button>
+            )}
             <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Add</button>
           </div>
         </div>
