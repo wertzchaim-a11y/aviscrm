@@ -8,17 +8,19 @@ export function useData() {
   const [tasks, setTasks] = useState([]);
   const [notes, setNotes] = useState([]);
   const [ideas, setIdeas] = useState([]);
+  const [outlookDbEvents, setOutlookDbEvents] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    const [f, i, s, t, n, id] = await Promise.all([
+    const [f, i, s, t, n, id, ol] = await Promise.all([
       supabase.from('facilities').select('*').order('position'),
       supabase.from('items').select('*').order('position').order('created_at'),
       supabase.from('steps').select('*').order('created_at'),
       supabase.from('tasks').select('*').order('created_at'),
       supabase.from('notes').select('*').order('created_at'),
       supabase.from('ideas').select('*').order('created_at', { ascending: false }),
+      supabase.from('outlook_events').select('*').order('start_date'),
     ]);
     setFacilities(f.data || []);
     setItems(i.data || []);
@@ -26,6 +28,7 @@ export function useData() {
     setTasks(t.data || []);
     setNotes(n.data || []);
     setIdeas(id.data || []);
+    setOutlookDbEvents(ol.data || []);
     setLoading(false);
   }, []);
 
@@ -158,14 +161,19 @@ export function useData() {
     return 0;
   };
 
+  const refreshOutlookEvents = async () => {
+    const { data: ol } = await supabase.from('outlook_events').select('*').order('start_date');
+    setOutlookDbEvents(ol || []);
+  };
+
   return {
-    facilities, items, steps, tasks, notes, ideas, loading, fetchAll,
+    facilities, items, steps, tasks, notes, ideas, outlookDbEvents, loading, fetchAll,
     updateFacility,
     addItem, updateItem, deleteItem, reorderItems,
     addStep, toggleStep, deleteStep,
     addTask, updateTask, toggleTask, deleteTask, reorderTasks,
     addNote, deleteNote,
     addIdea, updateIdea, deleteIdea,
-    calcProgress,
+    calcProgress, refreshOutlookEvents,
   };
 }
