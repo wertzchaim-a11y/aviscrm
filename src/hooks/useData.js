@@ -96,6 +96,9 @@ export function useData() {
       item_id: data.item_id || null,
       step_id: data.step_id || null,
       done: false,
+      task_type: data.task_type || 'task',
+      meeting_time: data.meeting_time || null,
+      attendees: data.attendees || null,
     };
     const { data: row, error } = await supabase.from('tasks').insert(cleanData).select().single();
     if (error) console.error('addTask error:', error);
