@@ -30,7 +30,12 @@ const NAV_MOBILE = [
   { id: 'pipeline', label: 'Pipeline', icon: '⬡' },
   { id: 'tasks', label: 'Tasks', icon: '☑' },
   { id: 'calendar', label: 'Calendar', icon: '◫' },
+];
+const NAV_MORE = [
+  { id: 'ideas', label: 'Ideas', icon: '◉' },
+  { id: 'people', label: 'People', icon: '👥' },
   { id: 'notes', label: 'Memos', icon: '📝' },
+  { id: 'archive', label: 'Completed', icon: '✓' },
 ];
 
 function SearchBar({ data, onNavigate }) {
@@ -120,6 +125,7 @@ function AppInner() {
   const { user, loading: authLoading, signOut } = useAuth();
   const data = useData();
   const [page, setPage] = useState('dashboard');
+  const [showMore, setShowMore] = useState(false);
   const [ideasResp, setIdeasResp] = useState('');
   const [convertIdea, setConvertIdea] = useState(null);
   const [selectedPerson, setSelectedPerson] = useState(null);
@@ -195,13 +201,33 @@ function AppInner() {
         {/* Mobile bottom nav */}
         <nav className="mobile-only" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--surface)', borderTop: '1px solid var(--border)', display: 'flex', paddingBottom: 'var(--safe-bottom)', zIndex: 50 }}>
           {NAV_MOBILE.map(n => (
-            <button key={n.id} onClick={() => setPage(n.id)}
+            <button key={n.id} onClick={() => { setPage(n.id); setShowMore(false); }}
               style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '8px 0 6px', fontSize: '20px', background: 'transparent', border: 'none', cursor: 'pointer', color: page === n.id ? 'var(--green)' : 'var(--text-3)', fontFamily: 'var(--font)' }}>
               <span>{n.icon}</span>
               <span style={{ fontSize: '9px', fontWeight: page === n.id ? '600' : '400' }}>{n.label}</span>
             </button>
           ))}
+          {/* Three dots */}
+          <button onClick={() => setShowMore(p => !p)}
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '8px 0 6px', fontSize: '20px', background: 'transparent', border: 'none', cursor: 'pointer', color: showMore || NAV_MORE.some(n => n.id === page) ? 'var(--green)' : 'var(--text-3)', fontFamily: 'var(--font)' }}>
+            <span>•••</span>
+            <span style={{ fontSize: '9px', fontWeight: '400' }}>More</span>
+          </button>
         </nav>
+
+        {/* More menu popup */}
+        {showMore && (
+          <div className="mobile-only" style={{ position: 'fixed', bottom: '56px', left: 0, right: 0, background: 'var(--surface)', borderTop: '1px solid var(--border)', zIndex: 49, padding: '8px' }}
+            onClick={() => setShowMore(false)}>
+            {NAV_MORE.map(n => (
+              <button key={n.id} onClick={() => { setPage(n.id); setShowMore(false); }}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%', padding: '12px 14px', fontSize: '14px', background: page === n.id ? 'var(--green-light)' : 'transparent', color: page === n.id ? 'var(--green)' : 'var(--text)', border: 'none', borderRadius: '10px', cursor: 'pointer', fontFamily: 'var(--font)', fontWeight: page === n.id ? '600' : '400', marginBottom: '2px' }}>
+                <span style={{ fontSize: '18px' }}>{n.icon}</span>
+                <span>{n.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );
