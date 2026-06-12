@@ -1,212 +1,152 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { AuthProvider, useAuth } from './hooks/useAuth';
-import { useData } from './hooks/useData';
-import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import PipelinePage from './pages/PipelinePage';
-import TasksPage from './pages/TasksPage';
-import CalendarPage from './pages/CalendarPage';
-import IdeasPage from './pages/IdeasPage';
-import ArchivePage from './pages/ArchivePage';
-import NotesPage from './pages/NotesPage';
-import PeoplePage from './pages/PeoplePage';
+import React from 'react';
 
-const NAV_MAIN = [
-  { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
-  { id: 'pipeline', label: 'Pipeline', icon: '⬡' },
-  { id: 'tasks', label: 'Tasks', icon: '☑' },
-  { id: 'calendar', label: 'Calendar', icon: '◫' },
-  { id: 'ideas', label: 'Ideas', icon: '◉' },
-];
-const NAV_PEOPLE = [
-  { id: 'people', label: 'People', icon: '👥' },
-  { id: 'notes', label: 'Memos', icon: '📝' },
-];
-const NAV_OTHER = [
-  { id: 'archive', label: 'Completed', icon: '✓' },
-];
-const NAV_MOBILE = [
-  { id: 'dashboard', label: 'Home', icon: '🏠' },
-  { id: 'pipeline', label: 'Pipeline', icon: '⬡' },
-  { id: 'tasks', label: 'Tasks', icon: '☑' },
-  { id: 'calendar', label: 'Calendar', icon: '◫' },
-  { id: 'notes', label: 'Memos', icon: '📝' },
-];
+function isOverdue(d) { return d && d < new Date().toISOString().slice(0, 10); }
 
-function SearchBar({ data, onNavigate }) {
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+const FAC_COLORS = ['#4F46E5', '#1D9E75', '#F59E0B', '#EC4899', '#0EA5E9', '#8B5CF6'];
+
+export default function DashboardPage({ data, onNavigate }) {
   const { facilities, items, tasks } = data;
+  const now = new Date();
+  const today = now.toISOString().slice(0, 10);
+  const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toISOString().slice(0, 10);
 
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  const greeting = now.getHours() < 12 ? 'Good morning' : now.getHours() < 17 ? 'Good afternoon' : 'Good evening';
+  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const q = query.toLowerCase().trim();
-  const results = q.length < 2 ? [] : [
-    ...tasks.filter(t => t.name.toLowerCase().includes(q)).slice(0, 3).map(t => {
-      const item = items.find(i => i.id === t.item_id);
-      const fac = facilities.find(f => f.id === item?.facility_id);
-      return { type: 'task', label: t.name, sub: `${fac?.name || 'Standalone'}${item ? ' · ' + item.name : ''}${t.due_date ? ' · ' + t.due_date : ''}`, icon: '☑', bg: '#EBF3FD', color: '#0C447C', nav: 'tasks' };
-    }),
-    ...items.filter(i => i.name.toLowerCase().includes(q)).slice(0, 3).map(i => {
-      const fac = facilities.find(f => f.id === i.facility_id);
-      return { type: 'project', label: i.name, sub: `${fac?.name || ''} · ${i.responsibility}`, icon: '◆', bg: '#EEEDFE', color: '#3C3489', nav: 'pipeline' };
-    }),
-  ];
+  const openTasks = tasks.filter(t => !t.done);
+  const overdueTasks = openTasks.filter(t => isOverdue(t.due_date)).sort((a, b) => a.due_date?.localeCompare(b.due_date));
+  const dueTodayTasks = openTasks.filter(t => t.due_date === today);
+  const dueThisWeek = openTasks.filter(t => t.due_date && t.due_date > today && t.due_date <= weekEnd);
+  const todayMeetings = tasks.filter(t => t.task_type === 'meeting' && t.due_date === today && !t.done).sort((a, b) => (a.meeting_time || '').localeCompare(b.meeting_time || ''));
+  const activeProjects = items.filter(i => !i.completed);
+  const priorityTasks = [...overdueTasks, ...dueTodayTasks].slice(0, 6);
 
   return (
-    <div ref={ref} style={{ position: 'relative', flex: 1, maxWidth: '440px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg)', border: `1.5px solid ${open ? 'var(--green)' : 'var(--border)'}`, borderRadius: '10px', padding: '7px 12px', transition: 'border-color 0.15s' }}>
-        <span style={{ fontSize: '14px', color: 'var(--text-3)' }}>🔍</span>
-        <input
-          value={query}
-          onChange={e => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
-          placeholder="Search tasks, projects, memos…"
-          style={{ flex: 1, border: 'none', background: 'transparent', fontSize: '13px', outline: 'none', color: 'var(--text)', fontFamily: 'var(--font)' }}
-        />
-        {query && <button onClick={() => { setQuery(''); setOpen(false); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-3)', fontSize: '14px', padding: 0 }}>×</button>}
-        <span style={{ fontSize: '10px', color: 'var(--text-3)', background: 'var(--surface)', borderRadius: '4px', padding: '2px 5px', flexShrink: 0 }}>⌘K</span>
-      </div>
-      {open && results.length > 0 && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 200, marginTop: '4px', overflow: 'hidden' }}>
-          {['task', 'project'].map(type => {
-            const group = results.filter(r => r.type === type);
-            if (group.length === 0) return null;
-            const label = type === 'task' ? 'Tasks' : type === 'project' ? 'Projects' : 'Memos';
-            return (
-              <div key={type}>
-                <div style={{ padding: '7px 14px 3px', fontSize: '10px', fontWeight: '700', color: '#bbb', textTransform: 'uppercase', letterSpacing: '.5px' }}>{label}</div>
-                {group.map((r, i) => (
-                  <div key={i} onClick={() => { onNavigate(r.nav); setQuery(''); setOpen(false); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 14px', cursor: 'pointer' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: r.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', flexShrink: 0 }}>{r.icon}</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', fontWeight: '500' }}>{r.label}</div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-3)' }}>{r.sub}</div>
-                    </div>
-                    <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '20px', fontWeight: '600', background: r.bg, color: r.color }}>{r.type}</span>
-                  </div>
-                ))}
-              </div>
-            );
-          })}
-          <div style={{ padding: '8px 14px', fontSize: '11px', color: 'var(--text-3)', borderTop: '1px solid var(--border)', textAlign: 'center' }}>Press Enter for all results</div>
+    <div style={{ flex: 1, overflow: 'auto', padding: '0 0 80px', background: 'var(--bg)' }}>
+      <div style={{ padding: '20px 20px 0' }}>
+        {/* Greeting */}
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ fontSize: '20px', fontWeight: '700', marginBottom: '3px' }}>{greeting}, Chaim 👋</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-3)' }}>{dateStr} · {facilities.length} facilities</div>
         </div>
-      )}
+
+        {/* Stats row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '16px' }}>
+          {[
+            { num: overdueTasks.length, label: 'Overdue', color: '#C0392B', bg: '#FEF0F0', onClick: () => onNavigate('tasks') },
+            { num: dueThisWeek.length, label: 'Due this week', color: '#0C447C', bg: '#EBF3FD', onClick: () => onNavigate('tasks') },
+            { num: todayMeetings.length, label: "Today's meetings", color: '#5B21B6', bg: '#F0EEFF', onClick: () => onNavigate('calendar') },
+            { num: activeProjects.length, label: 'Active projects', color: '#1D9E75', bg: '#F0FBF7', onClick: () => onNavigate('pipeline') },
+          ].map((s, i) => (
+            <div key={i} onClick={s.onClick}
+              style={{ background: '#fff', borderRadius: '12px', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,.06)', cursor: 'pointer', border: '1px solid transparent', transition: 'border-color 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = s.color + '40'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}>
+              <div style={{ fontSize: '26px', fontWeight: '800', color: s.color, lineHeight: 1, marginBottom: '4px' }}>{s.num}</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-3)', fontWeight: '500' }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Two columns */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px', marginBottom: '16px' }}>
+          {/* Overdue & due today */}
+          <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,.06)', overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600' }}>⚠️ Overdue & due today</span>
+              <span onClick={() => onNavigate('tasks')} style={{ fontSize: '11px', color: 'var(--green)', cursor: 'pointer' }}>All tasks →</span>
+            </div>
+            <div>
+              {priorityTasks.length === 0 ? (
+                <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: '12px' }}>🎉 All clear! Nothing overdue.</div>
+              ) : priorityTasks.map(t => {
+                const item = items.find(i => i.id === t.item_id);
+                const fac = facilities.find(f => f.id === item?.facility_id);
+                const ov = isOverdue(t.due_date);
+                return (
+                  <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '9px 16px', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: '1.5px solid #D0D5DD', flexShrink: 0, marginTop: '1px' }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '12px', fontWeight: '500' }}>{t.name}</div>
+                      <div style={{ fontSize: '10px', color: ov ? '#C0392B' : 'var(--text-3)', fontWeight: ov ? '600' : '400', marginTop: '1px' }}>
+                        {ov ? `${Math.floor((new Date(today) - new Date(t.due_date)) / 86400000)} days overdue` : 'Due today'} · {fac?.name || 'Standalone'}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '9px', padding: '2px 7px', borderRadius: '20px', fontWeight: '600', flexShrink: 0, background: t.priority === 'High' ? '#FEE2E2' : '#FEF3C7', color: t.priority === 'High' ? '#C0392B' : '#92400E' }}>{t.priority}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Today's meetings */}
+          <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,.06)', overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: '13px', fontWeight: '600' }}>📅 Today's meetings</span>
+              <span onClick={() => onNavigate('calendar')} style={{ fontSize: '11px', color: 'var(--green)', cursor: 'pointer' }}>Calendar →</span>
+            </div>
+            <div>
+              {todayMeetings.length === 0 ? (
+                <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-3)', fontSize: '12px' }}>No meetings scheduled today.</div>
+              ) : todayMeetings.map(t => (
+                <div key={t.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', padding: '9px 16px', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: '16px', flexShrink: 0 }}>📅</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '12px', fontWeight: '500' }}>{t.name}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '1px' }}>
+                      {t.meeting_time || 'All day'}{t.attendees ? ' · ' + t.attendees : ''}
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '9px', padding: '2px 7px', borderRadius: '20px', fontWeight: '600', background: '#FDEAEA', color: '#A93226', flexShrink: 0 }}>Meeting</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Facility overview */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,.06)', overflow: 'hidden', marginBottom: '16px' }}>
+          <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '13px', fontWeight: '600' }}>Facility overview</span>
+            <span onClick={() => onNavigate('pipeline')} style={{ fontSize: '11px', color: 'var(--green)', cursor: 'pointer' }}>Pipeline →</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px', background: 'var(--border)' }}>
+            {facilities.map((fac, i) => {
+              const facItems = items.filter(it => it.facility_id === fac.id && !it.completed);
+              const facTasks = tasks.filter(t => {
+                const item = items.find(it => it.id === t.item_id);
+                return item?.facility_id === fac.id && !t.done;
+              });
+              const facOverdue = facTasks.filter(t => isOverdue(t.due_date)).length;
+              const facDone = tasks.filter(t => {
+                const item = items.find(it => it.id === t.item_id);
+                return item?.facility_id === fac.id && t.done;
+              }).length;
+              const facTotal = facTasks.length + facDone;
+              const pct = facTotal > 0 ? Math.round(facDone / facTotal * 100) : 0;
+              const color = FAC_COLORS[i % FAC_COLORS.length];
+              return (
+                <div key={fac.id} onClick={() => onNavigate('pipeline')}
+                  style={{ padding: '12px 14px', background: '#fff', cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+                    <span style={{ fontSize: '12px', fontWeight: '600', flex: 1 }}>{fac.name}</span>
+                    {facOverdue > 0
+                      ? <span style={{ fontSize: '10px', color: '#C0392B', fontWeight: '600' }}>{facOverdue} overdue</span>
+                      : <span style={{ fontSize: '10px', color: '#1D9E75', fontWeight: '500' }}>All clear ✓</span>}
+                  </div>
+                  <div style={{ height: '4px', background: 'var(--border)', borderRadius: '2px', marginBottom: '4px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '2px', transition: 'width 0.3s' }} />
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{facTasks.length} open task{facTasks.length !== 1 ? 's' : ''} · {facItems.length} project{facItems.length !== 1 ? 's' : ''}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
-}
-
-function NavButton({ n, page, setPage, badge }) {
-  const active = page === n.id;
-  return (
-    <button onClick={() => setPage(n.id)}
-      style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: active ? '600' : '500', color: active ? 'var(--green)' : 'var(--text-2)', background: active ? 'var(--green-light)' : 'transparent', cursor: 'pointer', fontFamily: 'var(--font)', border: 'none', width: '100%', textAlign: 'left', marginBottom: '1px', transition: 'all 0.1s' }}>
-      <span style={{ fontSize: '15px', width: '20px', textAlign: 'center' }}>{n.icon}</span>
-      <span style={{ flex: 1 }}>{n.label}</span>
-      {badge > 0 && <span style={{ fontSize: '10px', fontWeight: '700', padding: '1px 6px', borderRadius: '10px', background: '#FEE2E2', color: '#C0392B' }}>{badge}</span>}
-    </button>
-  );
-}
-
-function AppInner() {
-  const { user, loading: authLoading, signOut } = useAuth();
-  const data = useData();
-  const [page, setPage] = useState('dashboard');
-  const [ideasResp, setIdeasResp] = useState('');
-  const [convertIdea, setConvertIdea] = useState(null);
-  const [selectedPerson, setSelectedPerson] = useState(null);
-
-  if (authLoading) return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: '14px' }}>Loading…</div>;
-  if (!user) return <LoginPage />;
-  if (data.loading) return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: '14px' }}>Loading data…</div>;
-
-  const goIdeas = (resp) => { setIdeasResp(resp || ''); setPage('ideas'); };
-  const handleConvertIdea = (idea) => { setConvertIdea(idea); setPage('pipeline'); };
-  const goToPerson = (name) => { setSelectedPerson({ name }); setPage('people'); };
-
-  const overdueBadge = data.tasks.filter(t => !t.done && t.due_date && t.due_date < new Date().toISOString().slice(0, 10)).length;
-
-  return (
-    <>
-      {/* Desktop sidebar */}
-      <nav className="desktop-sidebar" style={{ width: '200px', flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
-        {/* Logo */}
-        <div style={{ padding: '14px 14px 12px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '32px', height: '32px', background: 'var(--green)', borderRadius: '9px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', color: '#fff', fontWeight: '700', flexShrink: 0 }}>A</div>
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: '700' }}>Avi's CRM</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>Eminent Care Group</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Nav sections */}
-        <div style={{ flex: 1, overflow: 'auto', padding: '10px 8px 4px' }}>
-          <div style={{ fontSize: '9px', fontWeight: '700', color: '#C0C5D0', textTransform: 'uppercase', letterSpacing: '.8px', padding: '0 8px', marginBottom: '4px' }}>Main</div>
-          {NAV_MAIN.map(n => <NavButton key={n.id} n={n} page={page} setPage={setPage} badge={n.id === 'tasks' ? overdueBadge : 0} />)}
-          <div style={{ fontSize: '9px', fontWeight: '700', color: '#C0C5D0', textTransform: 'uppercase', letterSpacing: '.8px', padding: '10px 8px 4px' }}>People & Notes</div>
-          {NAV_PEOPLE.map(n => <NavButton key={n.id} n={n} page={page} setPage={setPage} badge={0} />)}
-          <div style={{ fontSize: '9px', fontWeight: '700', color: '#C0C5D0', textTransform: 'uppercase', letterSpacing: '.8px', padding: '10px 8px 4px' }}>Archive</div>
-          {NAV_OTHER.map(n => <NavButton key={n.id} n={n} page={page} setPage={setPage} badge={0} />)}
-        </div>
-
-        {/* User footer */}
-        <div style={{ padding: '10px 12px 12px', borderTop: '1px solid var(--border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-            <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--green-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', color: 'var(--green-text)', flexShrink: 0 }}>C</div>
-            <div style={{ flex: 1, overflow: 'hidden' }}>
-              <div style={{ fontSize: '11px', fontWeight: '600' }}>Chaim W.</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</div>
-            </div>
-          </div>
-          <button onClick={signOut} style={{ width: '100%', padding: '6px 10px', fontSize: '11px', color: 'var(--text-3)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'var(--font)' }}>Sign out</button>
-        </div>
-      </nav>
-
-      {/* Main content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
-        {/* Top header with search */}
-        <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-          <SearchBar data={data} onNavigate={setPage} />
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginLeft: 'auto' }}>
-            <button className="btn btn-primary btn-sm" onClick={() => setPage('pipeline')}>+ Add</button>
-          </div>
-        </div>
-
-        {/* Pages */}
-        {page === 'dashboard' && <DashboardPage data={data} onNavigate={setPage} />}
-        {page === 'pipeline' && <PipelinePage data={data} onGoIdeas={goIdeas} convertIdea={convertIdea} onConvertIdeaDone={() => setConvertIdea(null)} />}
-        {page === 'tasks' && <TasksPage data={data} />}
-        {page === 'calendar' && <CalendarPage data={data} />}
-        {page === 'ideas' && <IdeasPage data={data} initialResp={ideasResp} onConvertIdea={handleConvertIdea} />}
-        {page === 'notes' && <NotesPage data={data} onGoToPerson={goToPerson} />}
-        {page === 'people' && <PeoplePage data={data} initialPerson={selectedPerson} />}
-        {page === 'archive' && <ArchivePage data={data} />}
-
-        {/* Mobile bottom nav */}
-        <nav className="mobile-only" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--surface)', borderTop: '1px solid var(--border)', display: 'flex', paddingBottom: 'var(--safe-bottom)', zIndex: 50 }}>
-          {NAV_MOBILE.map(n => (
-            <button key={n.id} onClick={() => setPage(n.id)}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '8px 0 6px', fontSize: '20px', background: 'transparent', border: 'none', cursor: 'pointer', color: page === n.id ? 'var(--green)' : 'var(--text-3)', fontFamily: 'var(--font)' }}>
-              <span>{n.icon}</span>
-              <span style={{ fontSize: '9px', fontWeight: page === n.id ? '600' : '400' }}>{n.label}</span>
-            </button>
-          ))}
-        </nav>
-      </div>
-    </>
-  );
-}
-
-export default function App() {
-  return <AuthProvider><AppInner /></AuthProvider>;
 }
