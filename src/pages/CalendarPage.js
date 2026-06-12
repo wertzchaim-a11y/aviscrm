@@ -12,13 +12,13 @@ export default function CalendarPage({ data }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth());
-  const [filters, setFilters] = useState({ task: true, event: true, project: true });
+  const [filters, setFilters] = useState({ task: true, event: true, project: true, meeting: true });
   const [openItem, setOpenItem] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
   const [addType, setAddType] = useState('task');
-  const [itemForm, setItemForm] = useState({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' });
+  const [itemForm, setItemForm] = useState({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', event_time: '', assigned_to: '' });
   const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
   const [outlookConnected, setOutlookConnected] = useState(isOutlookConnected());
   const [showOutlook, setShowOutlook] = useState(true);
@@ -55,12 +55,13 @@ export default function CalendarPage({ data }) {
   }, []);
 
   const resetAdd = () => {
-    setShowAdd(false); setActiveTab('details');
+    setShowAdd(false); setActiveTab('details'); setAddType('task');
     setQuickSteps([]); setQuickTasks([]); setQuickNotes([]); setQuickIdeas([]);
     setStepInput(''); setTaskInput({ name: '', due_date: '', priority: 'Medium' });
     setNoteInput(''); setIdeaInput({ title: '', body: '' });
     setMeetingForm({ name: '', due_date: '', meeting_time: '', assigned_to: '', attendees: '', notes: '', item_id: '' });
     setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
+    setItemForm({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', event_time: '', assigned_to: '' });
   };
 
   const toggleFilter = (key) => setFilters(p => ({ ...p, [key]: !p[key] }));
@@ -87,7 +88,6 @@ export default function CalendarPage({ data }) {
         for (const n of quickNotes) await addNote({ item_id: newItem.id, text: n });
         for (const id of quickIdeas) await addIdea({ title: id.title, responsibility: itemForm.responsibility, body: id.body });
       }
-      setItemForm({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' });
     }
     resetAdd();
   };
@@ -97,14 +97,17 @@ export default function CalendarPage({ data }) {
   items.forEach(item => {
     if (filters.project && item.type === 'project' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'proj', id: item.id });
     if (filters.event && item.type === 'event' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'evt', id: item.id });
-    if (item.type === 'meeting' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'mtg_item', id: item.id });
   });
-  if (filters.task) tasks.forEach(t => {
-    if (t.due_date) {
-      const item = items.find(i => i.id === t.item_id);
-      const cls = t.task_type === 'meeting' ? 'mtg' : 'tsk';
-      addEv(t.due_date, { label: t.name, cls, id: item?.id, task_id: t.id, task: t });
-    }
+  if (filters.task) tasks.filter(t => t.due_date && t.task_type !== 'meeting').forEach(t => {
+    const item = items.find(i => i.id === t.item_id);
+    addEv(t.due_date, { label: t.name, cls: 'tsk', id: item?.id, task_id: t.id, task: t });
+  });
+  if (filters.meeting) tasks.filter(t => t.due_date && t.task_type === 'meeting').forEach(t => {
+    const item = items.find(i => i.id === t.item_id);
+    addEv(t.due_date, { label: t.name, cls: 'mtg', id: item?.id, task_id: t.id, task: t });
+  });
+  if (filters.meeting) items.forEach(item => {
+    if (item.type === 'meeting' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'mtg_item', id: item.id });
   });
   if (outlookConnected && showOutlook) {
     outlookDbEvents.forEach(ev => {
@@ -159,7 +162,7 @@ export default function CalendarPage({ data }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          {[['task','☑ Tasks','#EBF3FD','#0C447C'], ['event','★ Events','#F0EEFF','#5B21B6'], ['project','◆ Projects','#EEEDFE','#3C3489']].map(([key, label, bg, col]) => (
+          {[['task','☑ Tasks','#EBF3FD','#0C447C'], ['meeting','📅 Meetings','#FDEAEA','#A93226'], ['event','★ Events','#F0EEFF','#5B21B6'], ['project','◆ Projects','#EEEDFE','#3C3489']].map(([key, label, bg, col]) => (
             <button key={key} onClick={() => toggleFilter(key)}
               style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: '600', cursor: 'pointer', background: filters[key] ? bg : 'var(--surface)', color: filters[key] ? col : 'var(--text-3)', border: `1px solid ${filters[key] ? col + '60' : 'var(--border)'}` }}>
               {label}
@@ -168,7 +171,7 @@ export default function CalendarPage({ data }) {
           {outlookConnected && (
             <button onClick={() => setShowOutlook(p => !p)}
               style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: '600', cursor: 'pointer', background: showOutlook ? '#FDEAEA' : 'var(--surface)', color: showOutlook ? '#A93226' : 'var(--text-3)', border: `1px solid ${showOutlook ? '#C0392B60' : 'var(--border)'}` }}>
-              📅 Outlook
+              📅 Outlook Meetings
             </button>
           )}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -224,7 +227,7 @@ export default function CalendarPage({ data }) {
             </div>
             <div style={{ display: 'flex', gap: '5px', marginBottom: '14px' }}>
               {[['task', 'Task'], ['meeting', '📅 Meeting'], ['project', 'Project'], ['event', 'Event']].map(([t, l]) => (
-                <button key={t} onClick={() => setAddType(t)}
+                <button key={t} onClick={() => { setAddType(t); if (t === 'project' || t === 'event') setItemForm(p => ({ ...p, type: t })); }}
                   style={{ flex: 1, padding: '6px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: addType === t ? 'var(--text)' : 'var(--surface)', color: addType === t ? '#fff' : 'var(--text-2)' }}>
                   {l}
                 </button>
@@ -290,6 +293,7 @@ export default function CalendarPage({ data }) {
                       </select>
                     </div>
                     <div className="form-group"><label>Due date</label><input type="date" value={itemForm.due_date} onChange={e => setItemForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+                    {addType === 'event' && <div className="form-group"><label>Time (optional)</label><input type="time" value={itemForm.event_time || ''} onChange={e => setItemForm(p => ({ ...p, event_time: e.target.value }))} /></div>}
                     <div className="form-group"><label>Assigned to</label><input value={itemForm.assigned_to} onChange={e => setItemForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
                   </div>
                 )}
