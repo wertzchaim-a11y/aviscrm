@@ -21,7 +21,6 @@ export default function CalendarPage({ data }) {
   const [itemForm, setItemForm] = useState({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', event_time: '', assigned_to: '' });
   const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
   const [outlookConnected, setOutlookConnected] = useState(isOutlookConnected());
-  const [showOutlook, setShowOutlook] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [meetingForm, setMeetingForm] = useState({ name: '', due_date: '', meeting_time: '', assigned_to: '', attendees: '', notes: '', item_id: '' });
   const [activeTab, setActiveTab] = useState('details');
@@ -109,11 +108,14 @@ export default function CalendarPage({ data }) {
   if (filters.meeting) items.forEach(item => {
     if (item.type === 'meeting' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'mtg_item', id: item.id });
   });
-  if (outlookConnected && showOutlook) {
+  if (outlookConnected) {
     outlookDbEvents.forEach(ev => {
       const date = ev.start_date;
       const accepted = ev.response_status === 'accepted' || ev.response_status === 'organizer';
-      const cls = (ev.has_attendees || ev.is_online_meeting) ? (accepted ? 'outlook_mtg_yes' : 'outlook_mtg_maybe') : 'outlook_evt';
+      const isMtg = ev.has_attendees || ev.is_online_meeting;
+      const cls = isMtg ? (accepted ? 'outlook_mtg_yes' : 'outlook_mtg_maybe') : 'outlook_evt';
+      if (isMtg && !filters.meeting) return;
+      if (!isMtg && !filters.event) return;
       if (date) addEv(date, { label: ev.subject, cls, id: null, preview: ev.body_preview, response: ev.response_status });
     });
   }
@@ -168,12 +170,6 @@ export default function CalendarPage({ data }) {
               {label}
             </button>
           ))}
-          {outlookConnected && (
-            <button onClick={() => setShowOutlook(p => !p)}
-              style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: '600', cursor: 'pointer', background: showOutlook ? '#FDEAEA' : 'var(--surface)', color: showOutlook ? '#A93226' : 'var(--text-3)', border: `1px solid ${showOutlook ? '#C0392B60' : 'var(--border)'}` }}>
-              📅 Outlook Meetings
-            </button>
-          )}
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button className="btn-icon" onClick={() => move(-1)}>‹</button>
             <span style={{ fontWeight: '600', fontSize: '14px', minWidth: '110px', textAlign: 'center' }}>{monthStr}</span>
