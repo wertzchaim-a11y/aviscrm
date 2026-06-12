@@ -31,7 +31,7 @@ export default function DashboardPage({ data, onNavigate }) {
         </div>
 
         {/* Stats row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '16px' }}>
           {[
             { num: overdueTasks.length, label: 'Overdue', color: '#C0392B', bg: '#FEF0F0', onClick: () => onNavigate('tasks') },
             { num: dueThisWeek.length, label: 'Due this week', color: '#0C447C', bg: '#EBF3FD', onClick: () => onNavigate('tasks') },
@@ -49,7 +49,7 @@ export default function DashboardPage({ data, onNavigate }) {
         </div>
 
         {/* Two columns */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px', marginBottom: '16px' }}>
           {/* Overdue & due today */}
           <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,.06)', overflow: 'hidden' }}>
             <div style={{ padding: '12px 16px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -110,7 +110,7 @@ export default function DashboardPage({ data, onNavigate }) {
             <span style={{ fontSize: '13px', fontWeight: '600' }}>Facility overview</span>
             <span onClick={() => onNavigate('pipeline')} style={{ fontSize: '11px', color: 'var(--green)', cursor: 'pointer' }}>Pipeline →</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1px', background: 'var(--border)' }}>
+          <div style={{ display: 'flex', overflowX: 'auto', WebkitOverflowScrolling: 'touch', scrollSnapType: 'x mandatory', padding: '8px 8px', gap: '8px' }}>
             {facilities.map((fac, i) => {
               const facItems = items.filter(it => it.facility_id === fac.id && !it.completed);
               const facTasks = tasks.filter(t => {
@@ -127,20 +127,20 @@ export default function DashboardPage({ data, onNavigate }) {
               const color = FAC_COLORS[i % FAC_COLORS.length];
               return (
                 <div key={fac.id} onClick={() => onNavigate('pipeline')}
-                  style={{ padding: '12px 14px', background: '#fff', cursor: 'pointer' }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                  style={{ flexShrink: 0, width: '160px', scrollSnapAlign: 'start', padding: '12px 14px', background: 'var(--bg)', borderRadius: '10px', border: '1px solid var(--border)', cursor: 'pointer', transition: 'border-color 0.15s' }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = color}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: color, flexShrink: 0 }} />
                     <span style={{ fontSize: '12px', fontWeight: '600', flex: 1 }}>{fac.name}</span>
-                    {facOverdue > 0
-                      ? <span style={{ fontSize: '10px', color: '#C0392B', fontWeight: '600' }}>{facOverdue} overdue</span>
-                      : <span style={{ fontSize: '10px', color: '#1D9E75', fontWeight: '500' }}>All clear ✓</span>}
+                  </div>
+                  <div style={{ fontSize: '10px', marginBottom: '6px', fontWeight: '600', color: facOverdue > 0 ? '#C0392B' : '#1D9E75' }}>
+                    {facOverdue > 0 ? `${facOverdue} overdue` : 'All clear ✓'}
                   </div>
                   <div style={{ height: '4px', background: 'var(--border)', borderRadius: '2px', marginBottom: '4px', overflow: 'hidden' }}>
                     <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '2px', transition: 'width 0.3s' }} />
                   </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{facTasks.length} open task{facTasks.length !== 1 ? 's' : ''} · {facItems.length} project{facItems.length !== 1 ? 's' : ''}</div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{facTasks.length} task{facTasks.length !== 1 ? 's' : ''} · {facItems.length} project{facItems.length !== 1 ? 's' : ''}</div>
                 </div>
               );
             })}
