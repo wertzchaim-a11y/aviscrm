@@ -6,6 +6,37 @@ import { getValidAccessToken, isOutlookConnected, syncOutlookToSupabase, shouldS
 const RESP_COLS = ['Marketing', 'Employee retention', 'Recruitment', 'Other'];
 function getDaysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
 function getFirstDay(y, m) { return new Date(y, m, 1).getDay(); }
+function fmtTime(t) { if (!t) return ''; const [h, m] = t.split(':'); const hr = parseInt(h); return `${hr % 12 || 12}:${m} ${hr < 12 ? 'AM' : 'PM'}`; }
+
+const RECUR_OPTS = ['never', 'daily', 'weekly', 'biweekly', 'monthly'];
+const RECUR_LABEL = { never: 'Never', daily: 'Daily', weekly: 'Weekly', biweekly: 'Bi-weekly', monthly: 'Monthly' };
+const DOW_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+function RecurPicker({ value, days, onChange, onDaysChange }) {
+  return (
+    <div style={{ marginTop: '8px' }}>
+      <label style={{ fontSize: '11px', fontWeight: '600', color: '#888', display: 'block', marginBottom: '6px' }}>🔁 Repeat</label>
+      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '8px' }}>
+        {RECUR_OPTS.map(o => (
+          <button key={o} onClick={() => onChange(o)}
+            style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', cursor: 'pointer', fontFamily: 'var(--font)', border: '1px solid var(--border)', background: value === o ? 'var(--text)' : 'var(--surface)', color: value === o ? '#fff' : 'var(--text-2)' }}>
+            {RECUR_LABEL[o]}
+          </button>
+        ))}
+      </div>
+      {(value === 'weekly' || value === 'biweekly') && (
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+          {DOW_LABELS.map((d, i) => {
+            const sel = days ? days.split(',').includes(String(i)) : false;
+            return <button key={i} onClick={() => { const cur = days ? days.split(',').filter(Boolean) : []; const next = sel ? cur.filter(x => x !== String(i)) : [...cur, String(i)]; onDaysChange(next.join(',')); }}
+              style={{ width: '28px', height: '28px', borderRadius: '50%', fontSize: '10px', fontWeight: '600', cursor: 'pointer', fontFamily: 'var(--font)', border: '1px solid var(--border)', background: sel ? '#1D9E75' : 'var(--surface)', color: sel ? '#fff' : 'var(--text-2)' }}>{d}</button>;
+          })}
+        </div>
+      )}
+      {value !== 'never' && <div style={{ background: '#F0FBF7', border: '1px solid #C8EDD8', borderRadius: '8px', padding: '7px 10px', fontSize: '11px', color: '#2D7A5A' }}>🔁 Repeats {RECUR_LABEL[value].toLowerCase()}</div>}
+    </div>
+  );
+}
 
 export default function CalendarPage({ data }) {
   const { facilities, items, steps, tasks, notes, ideas, outlookDbEvents, addItem, addTask, addStep, toggleStep, deleteStep, updateItem, deleteItem, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, calcProgress, refreshOutlookEvents } = data;
@@ -17,19 +48,22 @@ export default function CalendarPage({ data }) {
   const [showAdd, setShowAdd] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [editingTask, setEditingTask] = useState(false);
+  const [editTaskForm, setEditTaskForm] = useState({});
+  const [selectedOutlook, setSelectedOutlook] = useState(null);
   const [addType, setAddType] = useState('task');
   const [itemForm, setItemForm] = useState({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', event_time: '', assigned_to: '' });
-  const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
+  const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', recur_type: 'never', recur_days: '' });
   const [outlookConnected, setOutlookConnected] = useState(isOutlookConnected());
   const [syncing, setSyncing] = useState(false);
-  const [meetingForm, setMeetingForm] = useState({ name: '', due_date: '', meeting_time: '', assigned_to: '', attendees: '', notes: '', item_id: '' });
+  const [meetingForm, setMeetingForm] = useState({ name: '', due_date: '', meeting_time: '', assigned_to: '', attendees: '', notes: '', item_id: '', recur_type: 'never', recur_days: '' });
   const [activeTab, setActiveTab] = useState('details');
   const [quickSteps, setQuickSteps] = useState([]);
   const [quickTasks, setQuickTasks] = useState([]);
   const [quickNotes, setQuickNotes] = useState([]);
   const [quickIdeas, setQuickIdeas] = useState([]);
   const [stepInput, setStepInput] = useState('');
-  const [taskInput, setTaskInput] = useState({ name: '', due_date: '', priority: 'Medium' });
+  const [taskInput, setTaskInput] = useState({ name: '', due_date: '', meeting_time: '', priority: 'Medium', notes: '', attendees: '', task_type: 'task', recur_type: 'never', recur_days: '' });
   const [noteInput, setNoteInput] = useState('');
   const [ideaInput, setIdeaInput] = useState({ title: '', body: '' });
 
@@ -38,11 +72,9 @@ export default function CalendarPage({ data }) {
   const firstDay = getFirstDay(year, month);
   const monthStr = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-  // Auto-sync Outlook on open if connected and it's been over an hour
   useEffect(() => {
     const doSync = async () => {
-      if (!outlookConnected) return;
-      if (!shouldSync()) return;
+      if (!outlookConnected || !shouldSync()) return;
       const token = await getValidAccessToken();
       if (!token) { setOutlookConnected(false); return; }
       setSyncing(true);
@@ -56,34 +88,29 @@ export default function CalendarPage({ data }) {
   const resetAdd = () => {
     setShowAdd(false); setActiveTab('details'); setAddType('task');
     setQuickSteps([]); setQuickTasks([]); setQuickNotes([]); setQuickIdeas([]);
-    setStepInput(''); setTaskInput({ name: '', due_date: '', priority: 'Medium' });
+    setStepInput(''); setTaskInput({ name: '', due_date: '', meeting_time: '', priority: 'Medium', notes: '', attendees: '', task_type: 'task', recur_type: 'never', recur_days: '' });
     setNoteInput(''); setIdeaInput({ title: '', body: '' });
-    setMeetingForm({ name: '', due_date: '', meeting_time: '', assigned_to: '', attendees: '', notes: '', item_id: '' });
-    setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '' });
+    setMeetingForm({ name: '', due_date: '', meeting_time: '', assigned_to: '', attendees: '', notes: '', item_id: '', recur_type: 'never', recur_days: '' });
+    setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', recur_type: 'never', recur_days: '' });
     setItemForm({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', event_time: '', assigned_to: '' });
   };
 
   const toggleFilter = (key) => setFilters(p => ({ ...p, [key]: !p[key] }));
-  const move = (dir) => {
-    let m = month + dir, y = year;
-    if (m > 11) { m = 0; y++; }
-    if (m < 0) { m = 11; y--; }
-    setMonth(m); setYear(y);
-  };
+  const move = (dir) => { let m = month + dir, y = year; if (m > 11) { m = 0; y++; } if (m < 0) { m = 11; y--; } setMonth(m); setYear(y); };
 
   const handleSave = async () => {
     if (addType === 'task') {
       if (!taskForm.name.trim()) return;
-      await addTask({ name: taskForm.name.trim(), due_date: taskForm.due_date || null, assigned_to: taskForm.assigned_to || null, priority: taskForm.priority || 'Medium', notes: taskForm.notes || null, item_id: taskForm.item_id || null, step_id: null, done: false, task_type: 'task' });
+      await addTask({ name: taskForm.name.trim(), due_date: taskForm.due_date || null, assigned_to: taskForm.assigned_to || null, priority: taskForm.priority || 'Medium', notes: taskForm.notes || null, item_id: taskForm.item_id || null, step_id: null, done: false, task_type: 'task', recur_type: taskForm.recur_type || 'never', recur_days: taskForm.recur_days || null });
     } else if (addType === 'meeting') {
       if (!meetingForm.name.trim()) return;
-      await addTask({ name: meetingForm.name.trim(), due_date: meetingForm.due_date || null, meeting_time: meetingForm.meeting_time || null, assigned_to: meetingForm.assigned_to || null, attendees: meetingForm.attendees || null, notes: meetingForm.notes || null, item_id: meetingForm.item_id || null, step_id: null, done: false, task_type: 'meeting', priority: 'Medium' });
+      await addTask({ name: meetingForm.name.trim(), due_date: meetingForm.due_date || null, meeting_time: meetingForm.meeting_time || null, assigned_to: meetingForm.assigned_to || null, attendees: meetingForm.attendees || null, notes: meetingForm.notes || null, item_id: meetingForm.item_id || null, step_id: null, done: false, task_type: 'meeting', priority: 'Medium', recur_type: meetingForm.recur_type || 'never', recur_days: meetingForm.recur_days || null });
     } else {
       if (!itemForm.name.trim() || !itemForm.facility_id) return;
       const newItem = await addItem({ ...itemForm, type: addType });
       if (newItem) {
         for (const s of quickSteps) await addStep({ item_id: newItem.id, name: s });
-        for (const t of quickTasks) await addTask({ item_id: newItem.id, name: t.name, due_date: t.due_date || null, priority: t.priority, step_id: null, done: false, task_type: 'task' });
+        for (const t of quickTasks) await addTask({ item_id: newItem.id, name: t.name, due_date: t.due_date || null, priority: t.priority || 'Medium', notes: t.notes || null, step_id: null, done: false, task_type: t.task_type || 'task', meeting_time: t.meeting_time || null, attendees: t.attendees || null, recur_type: t.recur_type || 'never', recur_days: t.recur_days || null });
         for (const n of quickNotes) await addNote({ item_id: newItem.id, text: n });
         for (const id of quickIdeas) await addIdea({ title: id.title, responsibility: itemForm.responsibility, body: id.body });
       }
@@ -91,11 +118,27 @@ export default function CalendarPage({ data }) {
     resetAdd();
   };
 
+  const handleSaveTaskEdit = async () => {
+    await updateTask(selectedTask.id, { ...editTaskForm, recur_type: editTaskForm.recur_type || 'never', recur_days: editTaskForm.recur_days || null, meeting_time: editTaskForm.meeting_time || null, attendees: editTaskForm.attendees || null });
+    setSelectedTask(p => ({ ...p, ...editTaskForm }));
+    setEditingTask(false);
+  };
+
+  const convertOutlookToProject = (ev) => {
+    setItemForm({ name: ev.subject || '', type: 'meeting', facility_id: '', responsibility: 'Marketing', due_date: ev.start_date || '', event_time: ev.start_time || '', assigned_to: '' });
+    setAddType('project');
+    setActiveTab('details');
+    setSelectedOutlook(null);
+    setSelectedDate(null);
+    setShowAdd(true);
+  };
+
   const evMap = {};
   const addEv = (date, entry) => { if (!date) return; (evMap[date] = evMap[date] || []).push(entry); };
   items.forEach(item => {
     if (filters.project && item.type === 'project' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'proj', id: item.id });
     if (filters.event && item.type === 'event' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'evt', id: item.id });
+    if (filters.meeting && item.type === 'meeting' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'mtg_item', id: item.id });
   });
   if (filters.task) tasks.filter(t => t.due_date && t.task_type !== 'meeting').forEach(t => {
     const item = items.find(i => i.id === t.item_id);
@@ -105,9 +148,6 @@ export default function CalendarPage({ data }) {
     const item = items.find(i => i.id === t.item_id);
     addEv(t.due_date, { label: t.name, cls: 'mtg', id: item?.id, task_id: t.id, task: t });
   });
-  if (filters.meeting) items.forEach(item => {
-    if (item.type === 'meeting' && item.due_date) addEv(item.due_date, { label: item.name, cls: 'mtg_item', id: item.id });
-  });
   if (outlookConnected) {
     outlookDbEvents.forEach(ev => {
       const date = ev.start_date;
@@ -116,20 +156,15 @@ export default function CalendarPage({ data }) {
       const cls = isMtg ? (accepted ? 'outlook_mtg_yes' : 'outlook_mtg_maybe') : 'outlook_evt';
       if (isMtg && !filters.meeting) return;
       if (!isMtg && !filters.event) return;
-      if (date) addEv(date, { label: ev.subject, cls, id: null, preview: ev.body_preview, response: ev.response_status });
+      if (date) addEv(date, { label: ev.subject, cls, id: null, outlookEv: ev });
     });
   }
 
-  const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
   const clsColor = {
-    proj:             { background: '#EEEDFE', color: '#3C3489' },
-    evt:              { background: '#F0EEFF', color: '#5B21B6' },
-    tsk:              { background: '#EBF3FD', color: '#0C447C' },
-    mtg:              { background: '#FDEAEA', color: '#A93226' },
-    mtg_item:         { background: '#FDEAEA', color: '#A93226' },
-    outlook_mtg_yes:  { background: '#FDEAEA', color: '#A93226' },
-    outlook_mtg_maybe:{ background: '#FEF3F3', color: '#E07070' },
-    outlook_evt:      { background: '#F0EEFF', color: '#5B21B6' },
+    proj: { background: '#EEEDFE', color: '#3C3489' }, evt: { background: '#F0EEFF', color: '#5B21B6' },
+    tsk: { background: '#EBF3FD', color: '#0C447C' }, mtg: { background: '#FDEAEA', color: '#A93226' },
+    mtg_item: { background: '#FDEAEA', color: '#A93226' }, outlook_mtg_yes: { background: '#FDEAEA', color: '#A93226' },
+    outlook_mtg_maybe: { background: '#FEF3F3', color: '#E07070' }, outlook_evt: { background: '#F0EEFF', color: '#5B21B6' },
   };
   const clsBorder = { proj: '#4F46E5', evt: '#7C3AED', tsk: '#0C447C', mtg: '#C0392B', mtg_item: '#C0392B', outlook_mtg_yes: '#C0392B', outlook_mtg_maybe: '#E07070', outlook_evt: '#7C3AED' };
   const clsIcon = { tsk: '☑ ', mtg: '📅 ', mtg_item: '📅 ', proj: '◆ ', evt: '★ ', outlook_mtg_yes: '📅 ', outlook_mtg_maybe: '📅 ', outlook_evt: '★ ' };
@@ -137,26 +172,26 @@ export default function CalendarPage({ data }) {
   const openItemObj = items.find(i => i.id === openItem);
   const openFacility = facilities.find(f => f.id === openItemObj?.facility_id);
 
+  const handleEvClick = (ev) => {
+    if (ev.outlookEv) { setSelectedOutlook(ev.outlookEv); setSelectedDate(null); return; }
+    if (ev.cls === 'tsk' || ev.cls === 'mtg') {
+      if (ev.task) { setSelectedTask(ev.task); setEditingTask(false); setSelectedDate(null); }
+      else if (ev.id) { setOpenItem(ev.id); setSelectedDate(null); }
+      return;
+    }
+    if (ev.id) { setOpenItem(ev.id); setSelectedDate(null); }
+  };
+
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '0 0 80px' }}>
+      {/* Header */}
       <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg)', borderBottom: '1px solid var(--border)', padding: '12px 16px 10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <h1 style={{ fontSize: '18px', fontWeight: '600' }}>Calendar</h1>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <OutlookConnect onConnected={async () => {
-              setOutlookConnected(true);
-              setSyncing(true);
-              const token = await getValidAccessToken();
-              if (token) { await syncOutlookToSupabase(token); await refreshOutlookEvents(); }
-              setSyncing(false);
-            }} />
+            <OutlookConnect onConnected={async () => { setOutlookConnected(true); setSyncing(true); const token = await getValidAccessToken(); if (token) { await syncOutlookToSupabase(token); await refreshOutlookEvents(); } setSyncing(false); }} />
             {outlookConnected && (
-              <button className="btn btn-sm" style={{ fontSize: '11px' }} onClick={async () => {
-                setSyncing(true);
-                const token = await getValidAccessToken();
-                if (token) { await syncOutlookToSupabase(token); await refreshOutlookEvents(); }
-                setSyncing(false);
-              }}>
+              <button className="btn btn-sm" style={{ fontSize: '11px' }} onClick={async () => { setSyncing(true); const token = await getValidAccessToken(); if (token) { await syncOutlookToSupabase(token); await refreshOutlookEvents(); } setSyncing(false); }}>
                 {syncing ? '🔄 Syncing…' : '🔄 Sync'}
               </button>
             )}
@@ -164,7 +199,7 @@ export default function CalendarPage({ data }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
-          {[['task','☑ Tasks','#EBF3FD','#0C447C'], ['meeting','📅 Meetings','#FDEAEA','#A93226'], ['event','★ Events','#F0EEFF','#5B21B6'], ['project','◆ Projects','#EEEDFE','#3C3489']].map(([key, label, bg, col]) => (
+          {[['task','☑ Tasks','#EBF3FD','#0C447C'],['meeting','📅 Meetings','#FDEAEA','#A93226'],['event','★ Events','#F0EEFF','#5B21B6'],['project','◆ Projects','#EEEDFE','#3C3489']].map(([key, label, bg, col]) => (
             <button key={key} onClick={() => toggleFilter(key)}
               style={{ fontSize: '11px', padding: '4px 12px', borderRadius: '20px', fontFamily: 'var(--font)', fontWeight: '600', cursor: 'pointer', background: filters[key] ? bg : 'var(--surface)', color: filters[key] ? col : 'var(--text-3)', border: `1px solid ${filters[key] ? col + '60' : 'var(--border)'}` }}>
               {label}
@@ -178,9 +213,10 @@ export default function CalendarPage({ data }) {
         </div>
       </div>
 
+      {/* Calendar grid */}
       <div style={{ padding: '0 8px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', marginBottom: '2px' }}>
-          {DOW.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '11px', fontWeight: '700', color: 'var(--text-3)', padding: '6px 0', textTransform: 'uppercase', letterSpacing: '.4px' }}>{d}</div>)}
+          {DOW_LABELS.map(d => <div key={d} style={{ textAlign: 'center', fontSize: '11px', fontWeight: '700', color: 'var(--text-3)', padding: '6px 0', textTransform: 'uppercase', letterSpacing: '.4px' }}>{d}</div>)}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
           {Array.from({ length: firstDay }).map((_, i) => (
@@ -202,7 +238,9 @@ export default function CalendarPage({ data }) {
                   <span style={{ fontSize: '11px', fontWeight: isToday ? '700' : '500', color: isToday ? '#fff' : 'var(--text-2)' }}>{d}</span>
                 </div>
                 {evs.slice(0, 3).map((ev, ei) => (
-                  <div key={ei} style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '0 5px 5px 0', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '500', opacity: ev.task?.done ? 0.45 : 1, textDecoration: ev.task?.done ? 'line-through' : 'none', borderLeft: `3px solid ${clsBorder[ev.cls] || '#aaa'}`, ...clsColor[ev.cls] }}>
+                  <div key={ei}
+                    onClick={e => { e.stopPropagation(); handleEvClick(ev); }}
+                    style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '0 5px 5px 0', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '500', opacity: ev.task?.done ? 0.45 : 1, textDecoration: ev.task?.done ? 'line-through' : 'none', borderLeft: `3px solid ${clsBorder[ev.cls] || '#aaa'}`, cursor: 'pointer', ...clsColor[ev.cls] }}>
                     {clsIcon[ev.cls]}{ev.label}
                   </div>
                 ))}
@@ -222,7 +260,7 @@ export default function CalendarPage({ data }) {
               <button className="btn-icon" onClick={resetAdd} style={{ fontSize: '18px' }}>×</button>
             </div>
             <div style={{ display: 'flex', gap: '5px', marginBottom: '14px' }}>
-              {[['task', 'Task'], ['meeting', '📅 Meeting'], ['project', 'Project'], ['event', 'Event']].map(([t, l]) => (
+              {[['task','Task'],['meeting','📅 Meeting'],['project','Project'],['event','Event']].map(([t, l]) => (
                 <button key={t} onClick={() => { setAddType(t); if (t === 'project' || t === 'event') setItemForm(p => ({ ...p, type: t })); }}
                   style={{ flex: 1, padding: '6px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: addType === t ? 'var(--text)' : 'var(--surface)', color: addType === t ? '#fff' : 'var(--text-2)' }}>
                   {l}
@@ -230,39 +268,45 @@ export default function CalendarPage({ data }) {
               ))}
             </div>
             {addType === 'task' && (
-              <div className="form-row">
-                <div className="form-group full"><label>Task name</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
-                <div className="form-group"><label>Due date</label><input type="date" value={taskForm.due_date} onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} /></div>
-                <div className="form-group"><label>Assigned to</label><input value={taskForm.assigned_to} onChange={e => setTaskForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
-                <div className="form-group"><label>Priority</label>
-                  <select value={taskForm.priority} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value }))}>
-                    <option>High</option><option>Medium</option><option>Low</option>
-                  </select>
+              <>
+                <div className="form-row">
+                  <div className="form-group full"><label>Task name</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
+                  <div className="form-group"><label>Due date</label><input type="date" value={taskForm.due_date} onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+                  <div className="form-group"><label>Assigned to</label><input value={taskForm.assigned_to} onChange={e => setTaskForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
+                  <div className="form-group"><label>Priority</label>
+                    <select value={taskForm.priority} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value }))}>
+                      <option>High</option><option>Medium</option><option>Low</option>
+                    </select>
+                  </div>
+                  <div className="form-group full"><label>Link to project (optional)</label>
+                    <select value={taskForm.item_id} onChange={e => setTaskForm(p => ({ ...p, item_id: e.target.value }))}>
+                      <option value="">— Standalone —</option>
+                      {items.map(i => { const fac = facilities.find(f => f.id === i.facility_id); return <option key={i.id} value={i.id}>{fac ? fac.name + ' · ' : ''}{i.name}</option>; })}
+                    </select>
+                  </div>
+                  <div className="form-group full"><label>Notes</label><textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} /></div>
                 </div>
-                <div className="form-group full"><label>Link to project (optional)</label>
-                  <select value={taskForm.item_id} onChange={e => setTaskForm(p => ({ ...p, item_id: e.target.value }))}>
-                    <option value="">— Standalone —</option>
-                    {items.map(i => { const fac = facilities.find(f => f.id === i.facility_id); return <option key={i.id} value={i.id}>{fac ? fac.name + ' · ' : ''}{i.name}</option>; })}
-                  </select>
-                </div>
-                <div className="form-group full"><label>Notes</label><textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} /></div>
-              </div>
+                <RecurPicker value={taskForm.recur_type} days={taskForm.recur_days} onChange={v => setTaskForm(p => ({ ...p, recur_type: v }))} onDaysChange={v => setTaskForm(p => ({ ...p, recur_days: v }))} />
+              </>
             )}
             {addType === 'meeting' && (
-              <div className="form-row">
-                <div className="form-group full"><label>Meeting name</label><input value={meetingForm.name} onChange={e => setMeetingForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
-                <div className="form-group"><label>Date</label><input type="date" value={meetingForm.due_date} onChange={e => setMeetingForm(p => ({ ...p, due_date: e.target.value }))} /></div>
-                <div className="form-group"><label>Time</label><input type="time" value={meetingForm.meeting_time} onChange={e => setMeetingForm(p => ({ ...p, meeting_time: e.target.value }))} /></div>
-                <div className="form-group"><label>Assigned to</label><input value={meetingForm.assigned_to} onChange={e => setMeetingForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
-                <div className="form-group full"><label>Attendees (optional)</label><input value={meetingForm.attendees} onChange={e => setMeetingForm(p => ({ ...p, attendees: e.target.value }))} placeholder="Names separated by commas…" /></div>
-                <div className="form-group full"><label>Link to project (optional)</label>
-                  <select value={meetingForm.item_id} onChange={e => setMeetingForm(p => ({ ...p, item_id: e.target.value }))}>
-                    <option value="">— Standalone —</option>
-                    {items.map(i => { const fac = facilities.find(f => f.id === i.facility_id); return <option key={i.id} value={i.id}>{fac ? fac.name + ' · ' : ''}{i.name}</option>; })}
-                  </select>
+              <>
+                <div className="form-row">
+                  <div className="form-group full"><label>Meeting name</label><input value={meetingForm.name} onChange={e => setMeetingForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
+                  <div className="form-group"><label>Date</label><input type="date" value={meetingForm.due_date} onChange={e => setMeetingForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+                  <div className="form-group"><label>Time</label><input type="time" value={meetingForm.meeting_time} onChange={e => setMeetingForm(p => ({ ...p, meeting_time: e.target.value }))} /></div>
+                  <div className="form-group"><label>Assigned to</label><input value={meetingForm.assigned_to} onChange={e => setMeetingForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
+                  <div className="form-group full"><label>Attendees (optional)</label><input value={meetingForm.attendees} onChange={e => setMeetingForm(p => ({ ...p, attendees: e.target.value }))} placeholder="Names separated by commas…" /></div>
+                  <div className="form-group full"><label>Link to project (optional)</label>
+                    <select value={meetingForm.item_id} onChange={e => setMeetingForm(p => ({ ...p, item_id: e.target.value }))}>
+                      <option value="">— Standalone —</option>
+                      {items.map(i => { const fac = facilities.find(f => f.id === i.facility_id); return <option key={i.id} value={i.id}>{fac ? fac.name + ' · ' : ''}{i.name}</option>; })}
+                    </select>
+                  </div>
+                  <div className="form-group full"><label>Notes</label><textarea value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} /></div>
                 </div>
-                <div className="form-group full"><label>Notes</label><textarea value={meetingForm.notes} onChange={e => setMeetingForm(p => ({ ...p, notes: e.target.value }))} /></div>
-              </div>
+                <RecurPicker value={meetingForm.recur_type} days={meetingForm.recur_days} onChange={v => setMeetingForm(p => ({ ...p, recur_type: v }))} onDaysChange={v => setMeetingForm(p => ({ ...p, recur_days: v }))} />
+              </>
             )}
             {(addType === 'project' || addType === 'event') && (
               <div>
@@ -309,19 +353,31 @@ export default function CalendarPage({ data }) {
                 )}
                 {activeTab === 'tasks' && (
                   <div>
+                    <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                      {[['task','☑ Task'],['meeting','📅 Meeting']].map(([t, l]) => (
+                        <button key={t} onClick={() => setTaskInput(p => ({ ...p, task_type: t }))}
+                          style={{ flex: 1, padding: '5px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: (taskInput.task_type || 'task') === t ? 'var(--text)' : 'var(--surface)', color: (taskInput.task_type || 'task') === t ? '#fff' : 'var(--text-2)' }}>{l}</button>
+                      ))}
+                    </div>
                     <div className="form-row" style={{ marginBottom: '8px' }}>
-                      <div className="form-group full"><label>Task name</label><input value={taskInput.name} onChange={e => setTaskInput(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
+                      <div className="form-group full"><label>{(taskInput.task_type || 'task') === 'meeting' ? 'Meeting name' : 'Task name'}</label><input value={taskInput.name} onChange={e => setTaskInput(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
                       <div className="form-group"><label>Due date</label><input type="date" value={taskInput.due_date} onChange={e => setTaskInput(p => ({ ...p, due_date: e.target.value }))} /></div>
-                      <div className="form-group"><label>Priority</label>
+                      {(taskInput.task_type || 'task') === 'meeting' && <div className="form-group"><label>Time</label><input type="time" value={taskInput.meeting_time || ''} onChange={e => setTaskInput(p => ({ ...p, meeting_time: e.target.value }))} /></div>}
+                      {(taskInput.task_type || 'task') !== 'meeting' && <div className="form-group"><label>Priority</label>
                         <select value={taskInput.priority} onChange={e => setTaskInput(p => ({ ...p, priority: e.target.value }))}>
                           <option>High</option><option>Medium</option><option>Low</option>
                         </select>
-                      </div>
+                      </div>}
+                      {(taskInput.task_type || 'task') === 'meeting' && <div className="form-group full"><label>Attendees</label><input value={taskInput.attendees || ''} onChange={e => setTaskInput(p => ({ ...p, attendees: e.target.value }))} placeholder="Names separated by commas…" /></div>}
+                      <div className="form-group full"><label>Notes (optional)</label><textarea value={taskInput.notes || ''} onChange={e => setTaskInput(p => ({ ...p, notes: e.target.value }))} placeholder="Any extra details…" /></div>
                     </div>
-                    <button className="btn btn-sm btn-primary" style={{ marginBottom: '10px' }} onClick={() => { if (taskInput.name.trim()) { setQuickTasks(p => [...p, { ...taskInput }]); setTaskInput({ name: '', due_date: '', priority: 'Medium' }); }}}>Add task</button>
+                    <RecurPicker value={taskInput.recur_type || 'never'} days={taskInput.recur_days || ''} onChange={v => setTaskInput(p => ({ ...p, recur_type: v }))} onDaysChange={v => setTaskInput(p => ({ ...p, recur_days: v }))} />
+                    <button className="btn btn-sm btn-primary" style={{ marginTop: '8px', marginBottom: '10px' }} onClick={() => { if (taskInput.name.trim()) { setQuickTasks(p => [...p, { ...taskInput }]); setTaskInput({ name: '', due_date: '', meeting_time: '', priority: 'Medium', notes: '', attendees: '', task_type: 'task', recur_type: 'never', recur_days: '' }); }}}>Add {(taskInput.task_type || 'task') === 'meeting' ? 'meeting' : 'task'}</button>
                     {quickTasks.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No tasks yet.</div> : quickTasks.map((t, i) => (
                       <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
-                        <span style={{ flex: 1 }}>{t.name}</span><span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{t.priority}</span>
+                        <span style={{ flex: 1 }}>{t.task_type === 'meeting' ? '📅 ' : ''}{t.name}</span>
+                        {t.recur_type && t.recur_type !== 'never' && <span style={{ fontSize: '10px', background: '#F0FBF7', color: '#1D9E75', padding: '1px 6px', borderRadius: '8px', fontWeight: '600' }}>🔁</span>}
+                        <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{t.task_type !== 'meeting' ? t.priority : ''}</span>
                         <button className="btn-icon" style={{ fontSize: '12px' }} onClick={() => setQuickTasks(p => p.filter((_, j) => j !== i))}>×</button>
                       </div>
                     ))}
@@ -364,6 +420,7 @@ export default function CalendarPage({ data }) {
         </div>
       )}
 
+      {/* ItemSheet for projects/events/meeting items */}
       {openItemObj && (
         <ItemSheet item={openItemObj} facility={openFacility}
           steps={steps} tasks={tasks} notes={notes} ideas={ideas}
@@ -401,17 +458,12 @@ export default function CalendarPage({ data }) {
               const renderEv = (ev, i) => {
                 const item = items.find(it => it.id === ev.id);
                 const fac = facilities.find(f => f.id === item?.facility_id);
-                const isOutlook = ev.cls === 'outlook_mtg_yes' || ev.cls === 'outlook_mtg_maybe' || ev.cls === 'outlook_evt';
+                const isOutlook = !!ev.outlookEv;
                 const isTask = ev.cls === 'tsk' || ev.cls === 'mtg';
                 const isTentative = ev.cls === 'outlook_mtg_maybe';
                 return (
-                  <div key={i} className="card" style={{ padding: '8px 10px', marginBottom: '6px', cursor: isOutlook ? 'default' : 'pointer', fontSize: '12px', borderLeft: `3px solid ${clsBorder[ev.cls] || '#aaa'}`, opacity: isTentative ? 0.75 : 1 }}
-                    onClick={() => {
-                      if (isOutlook) return;
-                      if (isTask && ev.id) { setOpenItem(ev.id); setSelectedDate(null); }
-                      else if (isTask && !ev.id) { setSelectedTask(ev.task); setSelectedDate(null); }
-                      else if (ev.id) { setOpenItem(ev.id); setSelectedDate(null); }
-                    }}>
+                  <div key={i} className="card" style={{ padding: '8px 10px', marginBottom: '6px', cursor: 'pointer', fontSize: '12px', borderLeft: `3px solid ${clsBorder[ev.cls] || '#aaa'}`, opacity: isTentative ? 0.75 : 1 }}
+                    onClick={() => handleEvClick(ev)}>
                     {isTask && (
                       <div className={`cb ${ev.task?.done ? 'checked' : ''}`}
                         onClick={e => { e.stopPropagation(); if (ev.task) toggleTask(ev.task.id); }}
@@ -422,10 +474,11 @@ export default function CalendarPage({ data }) {
                     <div style={{ fontWeight: '600', textDecoration: ev.task?.done ? 'line-through' : 'none', color: ev.task?.done ? 'var(--text-3)' : 'var(--text)', marginBottom: '2px' }}>
                       {clsIcon[ev.cls]}{ev.label}{isTentative && <span style={{ fontSize: '9px', marginLeft: '4px', color: '#E07070' }}>?</span>}
                     </div>
-                    {isOutlook && ev.preview && <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{ev.preview.slice(0, 50)}…</div>}
-                    {isOutlook && ev.cls !== 'outlook_evt' && <div style={{ fontSize: '9px', color: isTentative ? '#E07070' : '#C0392B', marginTop: '2px' }}>{isTentative ? 'Not responded' : 'Accepted'} · Outlook</div>}
-                    {isOutlook && ev.cls === 'outlook_evt' && <div style={{ fontSize: '9px', color: 'var(--text-3)', marginTop: '2px' }}>Outlook</div>}
-                    {isTask && <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{item ? item.name : 'Standalone'}{ev.task?.assigned_to ? ' · ' + ev.task.assigned_to : ''}{ev.task?.meeting_time ? ' @ ' + ev.task.meeting_time : ''}</div>}
+                    {isOutlook && ev.outlookEv.body_preview && <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{ev.outlookEv.body_preview.slice(0, 60)}…</div>}
+                    {isOutlook && <div style={{ fontSize: '9px', color: isTentative ? '#E07070' : ev.cls === 'outlook_evt' ? 'var(--text-3)' : '#C0392B', marginTop: '2px' }}>
+                      {ev.cls === 'outlook_evt' ? 'Outlook event' : isTentative ? 'Not responded · Outlook' : 'Accepted · Outlook'} · Tap to view
+                    </div>}
+                    {isTask && <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{item ? item.name : 'Standalone'}{ev.task?.assigned_to ? ' · ' + ev.task.assigned_to : ''}{ev.task?.meeting_time ? ' @ ' + fmtTime(ev.task.meeting_time) : ''}</div>}
                     {!isTask && !isOutlook && fac && <div style={{ fontSize: '10px', color: 'var(--text-3)' }}>{fac.name}</div>}
                   </div>
                 );
@@ -455,30 +508,97 @@ export default function CalendarPage({ data }) {
         </div>
       )}
 
-      {/* Standalone task popup */}
+      {/* Task/Meeting detail + edit popup */}
       {selectedTask && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setSelectedTask(null)}>
+          <div className="sheet-center" style={{ padding: '20px', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <h2 style={{ fontSize: '16px', fontWeight: '600' }}>{selectedTask.task_type === 'meeting' ? '📅 Meeting' : '☑ Task'}</h2>
+              <button className="btn-icon" onClick={() => { setSelectedTask(null); setEditingTask(false); }} style={{ fontSize: '18px' }}>×</button>
+            </div>
+            {!editingTask ? (
+              <>
+                <div style={{ marginBottom: '14px' }}>
+                  <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px', textDecoration: selectedTask.done ? 'line-through' : 'none', color: selectedTask.done ? 'var(--text-3)' : 'var(--text)' }}>{selectedTask.name}</div>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {selectedTask.priority && selectedTask.task_type !== 'meeting' && <span className={`badge badge-${selectedTask.priority?.toLowerCase()}`}>{selectedTask.priority}</span>}
+                    {selectedTask.assigned_to && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>👤 {selectedTask.assigned_to}</span>}
+                    {selectedTask.due_date && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>📅 {selectedTask.due_date}{selectedTask.meeting_time ? ' @ ' + fmtTime(selectedTask.meeting_time) : ''}</span>}
+                    {selectedTask.attendees && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>👥 {selectedTask.attendees}</span>}
+                    {selectedTask.recur_type && selectedTask.recur_type !== 'never' && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', background: '#F0FBF7', color: '#1D9E75', fontWeight: '600', border: '1px solid #C8EDD8' }}>🔁 {RECUR_LABEL[selectedTask.recur_type]}</span>}
+                    <span className="badge" style={{ background: selectedTask.done ? 'var(--green-light)' : 'var(--gray-light)', color: selectedTask.done ? 'var(--green-text)' : 'var(--gray)' }}>{selectedTask.done ? 'Done' : 'Open'}</span>
+                  </div>
+                  {selectedTask.notes && <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '10px', lineHeight: '1.6', background: 'var(--bg)', padding: '10px 12px', borderRadius: 'var(--radius)', borderLeft: '3px solid var(--green)' }}>{selectedTask.notes}</div>}
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button className="btn btn-sm btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={() => { toggleTask(selectedTask.id); setSelectedTask(p => ({ ...p, done: !p.done })); }}>
+                    {selectedTask.done ? '↩ Reopen' : '✓ Mark done'}
+                  </button>
+                  <button className="btn btn-sm" onClick={() => { setEditTaskForm({ name: selectedTask.name, due_date: selectedTask.due_date || '', meeting_time: selectedTask.meeting_time || '', assigned_to: selectedTask.assigned_to || '', attendees: selectedTask.attendees || '', priority: selectedTask.priority || 'Medium', notes: selectedTask.notes || '', task_type: selectedTask.task_type || 'task', recur_type: selectedTask.recur_type || 'never', recur_days: selectedTask.recur_days || '', item_id: selectedTask.item_id || null }); setEditingTask(true); }}>Edit</button>
+                  <button className="btn btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => { deleteTask(selectedTask.id); setSelectedTask(null); }}>Delete</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                  {[['task','☑ Task'],['meeting','📅 Meeting']].map(([t, l]) => (
+                    <button key={t} onClick={() => setEditTaskForm(p => ({ ...p, task_type: t }))}
+                      style={{ flex: 1, padding: '6px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: editTaskForm.task_type === t ? 'var(--text)' : 'var(--surface)', color: editTaskForm.task_type === t ? '#fff' : 'var(--text-2)' }}>{l}</button>
+                  ))}
+                </div>
+                <div className="form-row" style={{ marginBottom: '10px' }}>
+                  <div className="form-group full"><label>Name</label><input value={editTaskForm.name} onChange={e => setEditTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus /></div>
+                  <div className="form-group"><label>Date</label><input type="date" value={editTaskForm.due_date} onChange={e => setEditTaskForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+                  {editTaskForm.task_type === 'meeting' && <div className="form-group"><label>Time</label><input type="time" value={editTaskForm.meeting_time} onChange={e => setEditTaskForm(p => ({ ...p, meeting_time: e.target.value }))} /></div>}
+                  <div className="form-group"><label>Assigned to</label><input value={editTaskForm.assigned_to} onChange={e => setEditTaskForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
+                  {editTaskForm.task_type !== 'meeting' && <div className="form-group"><label>Priority</label>
+                    <select value={editTaskForm.priority} onChange={e => setEditTaskForm(p => ({ ...p, priority: e.target.value }))}>
+                      <option>High</option><option>Medium</option><option>Low</option>
+                    </select>
+                  </div>}
+                  {editTaskForm.task_type === 'meeting' && <div className="form-group full"><label>Attendees</label><input value={editTaskForm.attendees} onChange={e => setEditTaskForm(p => ({ ...p, attendees: e.target.value }))} placeholder="Names separated by commas…" /></div>}
+                  <div className="form-group full"><label>Notes</label><textarea value={editTaskForm.notes} onChange={e => setEditTaskForm(p => ({ ...p, notes: e.target.value }))} /></div>
+                </div>
+                <RecurPicker value={editTaskForm.recur_type} days={editTaskForm.recur_days} onChange={v => setEditTaskForm(p => ({ ...p, recur_type: v }))} onDaysChange={v => setEditTaskForm(p => ({ ...p, recur_days: v }))} />
+                <div className="form-actions" style={{ marginTop: '12px' }}>
+                  <button className="btn btn-sm" onClick={() => setEditingTask(false)}>Cancel</button>
+                  <button className="btn btn-sm btn-primary" onClick={handleSaveTaskEdit}>Save</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Outlook event detail popup */}
+      {selectedOutlook && (
+        <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setSelectedOutlook(null)}>
           <div className="sheet-center" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: '600' }}>{selectedTask.task_type === 'meeting' ? 'Meeting' : 'Task'}</h2>
-              <button className="btn-icon" onClick={() => setSelectedTask(null)} style={{ fontSize: '18px' }}>×</button>
-            </div>
-            <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '15px', fontWeight: '600', marginBottom: '8px', textDecoration: selectedTask.done ? 'line-through' : 'none', color: selectedTask.done ? 'var(--text-3)' : 'var(--text)' }}>{selectedTask.name}</div>
-              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {selectedTask.priority && selectedTask.task_type !== 'meeting' && <span className={`badge badge-${selectedTask.priority?.toLowerCase()}`}>{selectedTask.priority}</span>}
-                {selectedTask.assigned_to && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>{selectedTask.assigned_to}</span>}
-                {selectedTask.due_date && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>Due {selectedTask.due_date}{selectedTask.meeting_time ? ' @ ' + selectedTask.meeting_time : ''}</span>}
-                {selectedTask.attendees && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>👥 {selectedTask.attendees}</span>}
-                <span className="badge" style={{ background: selectedTask.done ? 'var(--green-light)' : 'var(--gray-light)', color: selectedTask.done ? 'var(--green-text)' : 'var(--gray)' }}>{selectedTask.done ? 'Done' : 'Open'}</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '20px', background: '#FDEAEA', color: '#A93226', fontWeight: '600' }}>Outlook</span>
+                {selectedOutlook.response_status === 'tentative' && <span style={{ fontSize: '11px', color: '#E07070', fontWeight: '600' }}>? Not responded</span>}
+                {(selectedOutlook.response_status === 'accepted' || selectedOutlook.response_status === 'organizer') && <span style={{ fontSize: '11px', color: '#1D9E75', fontWeight: '600' }}>✓ Accepted</span>}
               </div>
-              {selectedTask.notes && <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '10px', lineHeight: '1.6' }}>{selectedTask.notes}</div>}
+              <button className="btn-icon" onClick={() => setSelectedOutlook(null)} style={{ fontSize: '18px' }}>×</button>
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button className="btn btn-sm btn-primary" onClick={() => { toggleTask(selectedTask.id); setSelectedTask(p => ({ ...p, done: !p.done })); }}>
-                {selectedTask.done ? 'Mark open' : 'Mark done'}
+            <div style={{ fontSize: '17px', fontWeight: '700', marginBottom: '10px', lineHeight: '1.3' }}>{selectedOutlook.subject || 'No subject'}</div>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+              {selectedOutlook.start_date && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>📅 {selectedOutlook.start_date}{selectedOutlook.start_time ? ' @ ' + fmtTime(selectedOutlook.start_time) : ''}</span>}
+              {selectedOutlook.is_all_day && <span className="badge" style={{ background: 'var(--gray-light)', color: 'var(--gray)' }}>All day</span>}
+              {selectedOutlook.has_attendees && <span className="badge" style={{ background: '#FDEAEA', color: '#A93226' }}>👥 Has attendees</span>}
+              {selectedOutlook.is_online_meeting && <span className="badge" style={{ background: '#EBF3FD', color: '#0C447C' }}>💻 Online meeting</span>}
+            </div>
+            {selectedOutlook.body_preview && (
+              <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: '1.6', background: 'var(--bg)', padding: '10px 12px', borderRadius: 'var(--radius)', marginBottom: '14px' }}>
+                {selectedOutlook.body_preview}
+              </div>
+            )}
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-3)', marginBottom: '8px' }}>Convert this Outlook meeting into a project so you can add tasks, notes, and track it in your Pipeline:</div>
+              <button className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} onClick={() => convertOutlookToProject(selectedOutlook)}>
+                ◆ Convert to project in Pipeline
               </button>
-              <button className="btn btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => { deleteTask(selectedTask.id); setSelectedTask(null); }}>Delete</button>
             </div>
           </div>
         </div>
