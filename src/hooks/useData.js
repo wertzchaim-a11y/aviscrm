@@ -45,9 +45,9 @@ export function useData() {
     if (error) console.error('addItem error:', error);
     if (row) { setItems(prev => [...prev, row]); return row; }
   };
-  const reorderItems = async (facId, resp, fromIdx, toIdx) => {
-    const filtered = items.filter(i => i.facility_id === facId && i.responsibility === resp);
-    const others = items.filter(i => !(i.facility_id === facId && i.responsibility === resp));
+  const reorderItems = async (facId, resp, fromIdx, toIdx, sortedItems) => {
+    const filtered = sortedItems || items.filter(i => i.facility_id === facId && i.responsibility === resp && !i.completed);
+    const others = items.filter(i => !(i.facility_id === facId && i.responsibility === resp && !i.completed));
     const reordered = [...filtered];
     const [moved] = reordered.splice(fromIdx, 1);
     reordered.splice(toIdx, 0, moved);
@@ -99,6 +99,9 @@ export function useData() {
       task_type: data.task_type || 'task',
       meeting_time: data.meeting_time || null,
       attendees: data.attendees || null,
+      recur_type: data.recur_type || 'never',
+      recur_days: data.recur_days || null,
+      recur_parent_id: data.recur_parent_id || null,
     };
     const { data: row, error } = await supabase.from('tasks').insert(cleanData).select().single();
     if (error) console.error('addTask error:', error);
@@ -120,10 +123,27 @@ export function useData() {
     const { data: row } = await supabase.from('tasks').update(data).eq('id', id).select().single();
     if (row) setTasks(prev => prev.map(t => t.id === id ? row : t));
   };
+  const nextRecurDate = (due_date, recur_type, recur_days) => {
+    if (!due_date || recur_type === 'never') return null;
+    const base = new Date(due_date + 'T12:00:00');
+    if (recur_type === 'daily') { base.setDate(base.getDate() + 1); return base.toISOString().slice(0, 10); }
+    if (recur_type === 'weekly') { base.setDate(base.getDate() + 7); return base.toISOString().slice(0, 10); }
+    if (recur_type === 'biweekly') { base.setDate(base.getDate() + 14); return base.toISOString().slice(0, 10); }
+    if (recur_type === 'monthly') { base.setMonth(base.getMonth() + 1); return base.toISOString().slice(0, 10); }
+    return null;
+  };
   const toggleTask = async (id) => {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
-    await updateTask(id, { done: !task.done });
+    const nowDone = !task.done;
+    await updateTask(id, { done: nowDone });
+    // Auto-create next recurrence when marking done
+    if (nowDone && task.recur_type && task.recur_type !== 'never') {
+      const nextDate = nextRecurDate(task.due_date, task.recur_type, task.recur_days);
+      if (nextDate) {
+        await addTask({ name: task.name, due_date: nextDate, assigned_to: task.assigned_to, priority: task.priority, notes: task.notes, item_id: task.item_id, step_id: task.step_id, task_type: task.task_type, meeting_time: task.meeting_time, attendees: task.attendees, recur_type: task.recur_type, recur_days: task.recur_days, done: false, recur_parent_id: task.id });
+      }
+    }
   };
   const deleteTask = async (id) => {
     await supabase.from('tasks').delete().eq('id', id);
