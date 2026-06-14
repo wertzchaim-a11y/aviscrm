@@ -9,6 +9,36 @@ function isOverdue(d) { return d && d < new Date().toISOString().slice(0, 10); }
 
 const EMPTY_FORM = { name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' };
 
+const RECUR_OPTS = ['never', 'daily', 'weekly', 'biweekly', 'monthly'];
+const RECUR_LABEL = { never: 'Never', daily: 'Daily', weekly: 'Weekly', biweekly: 'Bi-weekly', monthly: 'Monthly' };
+const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+function RecurPicker({ value, days, onChange, onDaysChange }) {
+  return (
+    <div style={{ marginTop: '8px' }}>
+      <label style={{ fontSize: '11px', fontWeight: '600', color: '#888', display: 'block', marginBottom: '6px' }}>🔁 Repeat</label>
+      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '8px' }}>
+        {RECUR_OPTS.map(o => (
+          <button key={o} onClick={() => onChange(o)}
+            style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', cursor: 'pointer', fontFamily: 'var(--font)', border: '1px solid var(--border)', background: value === o ? 'var(--text)' : 'var(--surface)', color: value === o ? '#fff' : 'var(--text-2)' }}>
+            {RECUR_LABEL[o]}
+          </button>
+        ))}
+      </div>
+      {(value === 'weekly' || value === 'biweekly') && (
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+          {DOW.map((d, i) => {
+            const sel = days ? days.split(',').includes(String(i)) : false;
+            return <button key={i} onClick={() => { const cur = days ? days.split(',').filter(Boolean) : []; const next = sel ? cur.filter(x => x !== String(i)) : [...cur, String(i)]; onDaysChange(next.join(',')); }}
+              style={{ width: '28px', height: '28px', borderRadius: '50%', fontSize: '10px', fontWeight: '600', cursor: 'pointer', fontFamily: 'var(--font)', border: '1px solid var(--border)', background: sel ? '#1D9E75' : 'var(--surface)', color: sel ? '#fff' : 'var(--text-2)' }}>{d}</button>;
+          })}
+        </div>
+      )}
+      {value !== 'never' && <div style={{ background: '#F0FBF7', border: '1px solid #C8EDD8', borderRadius: '8px', padding: '7px 10px', fontSize: '11px', color: '#2D7A5A' }}>🔁 Repeats {RECUR_LABEL[value].toLowerCase()}</div>}
+    </div>
+  );
+}
+
 export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertIdeaDone }) {
   const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, reorderItems, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, updateIdea, deleteIdea, calcProgress, updateFacility } = data;
 
@@ -22,7 +52,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
   const [quickNotes, setQuickNotes] = useState([]);
   const [quickIdeas, setQuickIdeas] = useState([]);
   const [stepInput, setStepInput] = useState('');
-  const [taskInput, setTaskInput] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium' });
+  const [taskInput, setTaskInput] = useState({ name: '', due_date: '', meeting_time: '', assigned_to: '', priority: 'Medium', notes: '', attendees: '', task_type: 'task', recur_type: 'never', recur_days: '' });
   const [noteInput, setNoteInput] = useState('');
   const [ideaInput, setIdeaInput] = useState({ title: '', body: '' });
   const [activeTab, setActiveTab] = useState('details');
@@ -80,7 +110,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
     });
     if (newItem) {
       for (let i = 0; i < quickSteps.length; i++) await addStep({ item_id: newItem.id, name: quickSteps[i] });
-      for (const t of quickTasks) await addTask({ item_id: newItem.id, name: t.name, due_date: t.due_date || null, assigned_to: t.assigned_to || null, priority: t.priority, notes: '', step_id: null, done: false });
+      for (const t of quickTasks) await addTask({ item_id: newItem.id, name: t.name, due_date: t.due_date || null, assigned_to: t.assigned_to || null, priority: t.priority, notes: t.notes || null, step_id: null, done: false, task_type: t.task_type || 'task', meeting_time: t.meeting_time || null, attendees: t.attendees || null, recur_type: t.recur_type || 'never', recur_days: t.recur_days || null });
       for (const n of quickNotes) await addNote({ item_id: newItem.id, text: n });
       for (const id of quickIdeas) await addIdea({ title: id.title, responsibility: addForm.responsibility, body: id.body });
     }
@@ -163,7 +193,13 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                       style={{ fontSize: '16px', lineHeight: 1, background: 'transparent', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: '0 2px' }}>+</button>
                   </div>
                   {facItems.length === 0 && <div style={{ fontSize: '11px', color: 'var(--text-3)', padding: '4px 0' }}>No items</div>}
-                  {facItems.map((item, idx) => {
+                  {(() => {
+                    const sortedItems = [...facItems].sort((a, b) => {
+                      if (a.is_priority && !b.is_priority) return -1;
+                      if (!a.is_priority && b.is_priority) return 1;
+                      return (a.position || 0) - (b.position || 0);
+                    });
+                    return sortedItems.map((item, idx) => {
                     const prog = calcProgress(item);
                     const overdue = isOverdue(item.due_date);
                     return (
@@ -172,22 +208,29 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                         onDragStart={e => { e.dataTransfer.setData('text/plain', String(idx)); e.currentTarget.style.opacity = '0.4'; }}
                         onDragEnd={e => { e.currentTarget.style.opacity = '1'; e.currentTarget.style.borderColor = ''; }}
                         onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = 'var(--green)'; }}
-                        onDragLeave={e => { e.currentTarget.style.borderColor = ''; }}
+                        onDragLeave={e => { e.currentTarget.style.borderColor = item.is_priority ? '#F59E0B' : ''; }}
                         onDrop={e => {
                           e.preventDefault();
-                          e.currentTarget.style.borderColor = '';
+                          e.currentTarget.style.borderColor = item.is_priority ? '#F59E0B' : '';
                           const fromIdx = parseInt(e.dataTransfer.getData('text/plain'));
-                          if (fromIdx !== idx) reorderItems(fac.id, resp, fromIdx, idx);
+                          if (fromIdx !== idx) reorderItems(fac.id, resp, fromIdx, idx, sortedItems);
                         }}
                         className="card"
-                        style={{ padding: '9px 10px', marginBottom: '7px', cursor: 'grab', transition: 'border-color 0.15s, opacity 0.15s' }}
+                        style={{ padding: '9px 10px', marginBottom: '7px', cursor: 'grab', transition: 'border-color 0.15s, opacity 0.15s', border: item.is_priority ? '2px solid #F59E0B' : '1px solid var(--border)', background: item.is_priority ? '#FFFDF5' : 'var(--surface)' }}
                         onClick={() => setOpenItem(item.id)}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '4px', marginBottom: '4px' }}>
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '5px', flex: 1 }}>
                             <span style={{ color: 'var(--text-3)', fontSize: '11px', marginTop: '1px', flexShrink: 0 }}>⠿</span>
                             <span style={{ fontWeight: '600', fontSize: '12px', lineHeight: '1.3' }}>{item.name}</span>
                           </div>
-                          <span className={`badge ${item.type === 'project' ? 'badge-project' : item.type === 'meeting' ? 'badge-high' : 'badge-event'}`} style={{ fontSize: '9px', padding: '1px 5px', flexShrink: 0 }}>{item.type}</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                            <button onClick={e => { e.stopPropagation(); updateItem(item.id, { is_priority: !item.is_priority }); }}
+                              title={item.is_priority ? 'Remove priority' : 'Mark as priority'}
+                              style={{ fontSize: '13px', background: 'transparent', border: 'none', cursor: 'pointer', padding: '0', lineHeight: 1, opacity: item.is_priority ? 1 : 0.3 }}>
+                              ⭐
+                            </button>
+                            <span className={`badge ${item.type === 'project' ? 'badge-project' : item.type === 'meeting' ? 'badge-high' : 'badge-event'}`} style={{ fontSize: '9px', padding: '1px 5px' }}>{item.type}</span>
+                          </div>
                         </div>
                         {item.due_date ? <div style={{ fontSize: '10px', color: overdue ? 'var(--red)' : 'var(--text-3)', marginBottom: '5px' }}>{overdue ? 'Overdue: ' : 'Due: '}{fmt(item.due_date)}</div>
                           : <div style={{ fontSize: '10px', color: 'var(--text-3)', marginBottom: '5px' }}>No due date</div>}
@@ -195,7 +238,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                         <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '3px' }}>{prog}%{item.assigned_to ? ' · ' + item.assigned_to : ''}</div>
                       </div>
                     );
-                  })}
+                  })})()}
                   <button onClick={() => { setAddForm(p => ({ ...p, facility_id: fac.id, responsibility: resp })); setShowAddForm(true); }}
                     style={{ width: '100%', fontSize: '11px', padding: '5px', borderRadius: 'var(--radius)', border: '1px dashed var(--border-md)', background: 'transparent', color: 'var(--text-3)', cursor: 'pointer', fontFamily: 'var(--font)', marginTop: '4px' }}>
                     + Add
@@ -300,23 +343,35 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
 
             {activeTab === 'tasks' && (
               <div>
+                {/* Task/Meeting toggle */}
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                  {[['task', '☑ Task'], ['meeting', '📅 Meeting']].map(([t, l]) => (
+                    <button key={t} onClick={() => setTaskInput(p => ({ ...p, task_type: t }))}
+                      style={{ flex: 1, padding: '5px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: (taskInput.task_type || 'task') === t ? 'var(--text)' : 'var(--surface)', color: (taskInput.task_type || 'task') === t ? '#fff' : 'var(--text-2)' }}>{l}</button>
+                  ))}
+                </div>
                 <div className="form-row" style={{ marginBottom: '10px' }}>
-                  <div className="form-group full"><label>Task name</label><input value={taskInput.name} onChange={e => setTaskInput(p => ({ ...p, name: e.target.value }))} placeholder="Task name…" autoFocus /></div>
+                  <div className="form-group full"><label>{(taskInput.task_type || 'task') === 'meeting' ? 'Meeting name' : 'Task name'}</label><input value={taskInput.name} onChange={e => setTaskInput(p => ({ ...p, name: e.target.value }))} placeholder="Name…" autoFocus /></div>
                   <div className="form-group"><label>Due date</label><input type="date" value={taskInput.due_date} onChange={e => setTaskInput(p => ({ ...p, due_date: e.target.value }))} /></div>
+                  {(taskInput.task_type || 'task') === 'meeting' && <div className="form-group"><label>Time</label><input type="time" value={taskInput.meeting_time || ''} onChange={e => setTaskInput(p => ({ ...p, meeting_time: e.target.value }))} /></div>}
                   <div className="form-group"><label>Assigned to</label><input value={taskInput.assigned_to} onChange={e => setTaskInput(p => ({ ...p, assigned_to: e.target.value }))} /></div>
-                  <div className="form-group"><label>Priority</label>
+                  {(taskInput.task_type || 'task') !== 'meeting' && <div className="form-group"><label>Priority</label>
                     <select value={taskInput.priority} onChange={e => setTaskInput(p => ({ ...p, priority: e.target.value }))}>
                       <option>High</option><option>Medium</option><option>Low</option>
                     </select>
-                  </div>
+                  </div>}
+                  {(taskInput.task_type || 'task') === 'meeting' && <div className="form-group full"><label>Attendees (optional)</label><input value={taskInput.attendees || ''} onChange={e => setTaskInput(p => ({ ...p, attendees: e.target.value }))} placeholder="Names separated by commas…" /></div>}
+                  <div className="form-group full"><label>Notes (optional)</label><textarea value={taskInput.notes || ''} onChange={e => setTaskInput(p => ({ ...p, notes: e.target.value }))} placeholder="Any extra details…" /></div>
                 </div>
-                <button className="btn btn-sm btn-primary" style={{ marginBottom: '12px' }} onClick={() => { if (taskInput.name.trim()) { setQuickTasks(p => [...p, { ...taskInput }]); setTaskInput({ name: '', due_date: '', assigned_to: '', priority: 'Medium' }); }}}>Add task</button>
+                <RecurPicker value={taskInput.recur_type} days={taskInput.recur_days} onChange={v => setTaskInput(p => ({ ...p, recur_type: v }))} onDaysChange={v => setTaskInput(p => ({ ...p, recur_days: v }))} />
+                <button className="btn btn-sm btn-primary" style={{ marginTop: '8px', marginBottom: '12px' }} onClick={() => { if (taskInput.name.trim()) { setQuickTasks(p => [...p, { ...taskInput }]); setTaskInput({ name: '', due_date: '', meeting_time: '', assigned_to: '', priority: 'Medium', notes: '', attendees: '', task_type: 'task', recur_type: 'never', recur_days: '' }); }}}>Add {(taskInput.task_type || 'task') === 'meeting' ? 'meeting' : 'task'}</button>
                 {quickTasks.length === 0 ? <div style={{ fontSize: '12px', color: 'var(--text-3)' }}>No tasks yet.</div> :
                   quickTasks.map((t, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: '12px' }}>
                       <div style={{ width: '14px', height: '14px', borderRadius: '3px', border: '1.5px solid var(--border-md)', flexShrink: 0 }} />
-                      <span style={{ flex: 1 }}>{t.name}</span>
-                      <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{t.priority}</span>
+                      <span style={{ flex: 1 }}>{t.task_type === 'meeting' ? '📅 ' : ''}{t.name}</span>
+                      {t.recur_type && t.recur_type !== 'never' && <span style={{ fontSize: '10px', background: '#F0FBF7', color: '#1D9E75', padding: '1px 6px', borderRadius: '8px', fontWeight: '600', border: '1px solid #C8EDD8' }}>🔁</span>}
+                      {t.task_type !== 'meeting' && <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{t.priority}</span>}
                       <button className="btn-icon" style={{ width: '22px', height: '22px', fontSize: '12px' }} onClick={() => setQuickTasks(p => p.filter((_, j) => j !== i))}>×</button>
                     </div>
                   ))
