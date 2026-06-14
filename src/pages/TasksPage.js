@@ -6,6 +6,35 @@ const PRI_ORDER = { High: 0, Medium: 1, Low: 2 };
 function fmt(d) { if (!d) return '—'; const [y, m, day] = d.split('-'); return `${parseInt(m)}/${parseInt(day)}/${y}`; }
 function isOverdue(d) { return d && d < new Date().toISOString().slice(0, 10); }
 
+const RECUR_OPTS = ['never', 'daily', 'weekly', 'biweekly', 'monthly'];
+const RECUR_LABEL = { never: 'Never', daily: 'Daily', weekly: 'Weekly', biweekly: 'Bi-weekly', monthly: 'Monthly' };
+const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+function RecurPicker({ value, days, onChange, onDaysChange }) {
+  return (
+    <div style={{ marginTop: '8px' }}>
+      <label style={{ fontSize: '11px', fontWeight: '600', color: '#888', display: 'block', marginBottom: '6px' }}>🔁 Repeat</label>
+      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '8px' }}>
+        {RECUR_OPTS.map(o => (
+          <button key={o} onClick={() => onChange(o)}
+            style={{ padding: '4px 10px', borderRadius: '20px', fontSize: '11px', fontWeight: '500', cursor: 'pointer', fontFamily: 'var(--font)', border: '1px solid var(--border)', background: value === o ? 'var(--text)' : 'var(--surface)', color: value === o ? '#fff' : 'var(--text-2)' }}>
+            {RECUR_LABEL[o]}
+          </button>
+        ))}
+      </div>
+      {(value === 'weekly' || value === 'biweekly') && (
+        <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
+          {DOW.map((d, i) => {
+            const sel = days ? days.split(',').includes(String(i)) : false;
+            return <button key={i} onClick={() => { const cur = days ? days.split(',').filter(Boolean) : []; const next = sel ? cur.filter(x => x !== String(i)) : [...cur, String(i)]; onDaysChange(next.join(',')); }} style={{ width: '28px', height: '28px', borderRadius: '50%', fontSize: '10px', fontWeight: '600', cursor: 'pointer', fontFamily: 'var(--font)', border: '1px solid var(--border)', background: sel ? '#1D9E75' : 'var(--surface)', color: sel ? '#fff' : 'var(--text-2)' }}>{d}</button>;
+          })}
+        </div>
+      )}
+      {value !== 'never' && <div style={{ background: '#F0FBF7', border: '1px solid #C8EDD8', borderRadius: '8px', padding: '7px 10px', fontSize: '11px', color: '#2D7A5A' }}>🔁 Repeats {RECUR_LABEL[value].toLowerCase()}</div>}
+    </div>
+  );
+}
+
 export default function TasksPage({ data }) {
   const { facilities, items, steps, tasks, notes, ideas, addStep, toggleStep, deleteStep, addTask, updateItem, deleteItem, updateTask, toggleTask, deleteTask, reorderTasks, addNote, deleteNote, calcProgress } = data;
   const [facFilter, setFacFilter] = useState('');
@@ -19,7 +48,7 @@ export default function TasksPage({ data }) {
   const [editForm, setEditForm] = useState({});
   const [openItem, setOpenItem] = useState(null);
   const [showAddTask, setShowAddTask] = useState(false);
-  const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', task_type: 'task', meeting_time: '', attendees: '' });
+  const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', task_type: 'task', meeting_time: '', attendees: '', recur_type: 'never', recur_days: '' });
 
   const handleSortChange = (mode) => { setSortMode(mode); localStorage.setItem('tasks-sort', mode); };
 
@@ -70,8 +99,10 @@ export default function TasksPage({ data }) {
       task_type: taskForm.task_type || 'task',
       meeting_time: taskForm.meeting_time || null,
       attendees: taskForm.attendees || null,
+      recur_type: taskForm.recur_type || 'never',
+      recur_days: taskForm.recur_days || null,
     });
-    setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', task_type: 'task', meeting_time: '', attendees: '' });
+    setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', task_type: 'task', meeting_time: '', attendees: '', recur_type: 'never', recur_days: '' });
     setShowAddTask(false);
   };
 
@@ -153,7 +184,7 @@ export default function TasksPage({ data }) {
               }}
               className="card"
               style={{ padding: '10px 12px', marginBottom: '7px', display: 'flex', alignItems: 'stretch', gap: '0', transition: 'border-color 0.15s', cursor: isDraggable ? 'grab' : 'pointer' }}
-              onClick={() => { setEditForm({ name: t.name, due_date: t.due_date || '', assigned_to: t.assigned_to || '', priority: t.priority || 'Medium', notes: t.notes || '', task_type: t.task_type || 'task', meeting_time: t.meeting_time || '', attendees: t.attendees || '', item_id: t.item_id || '' }); setEditingTask(t); }}>
+              onClick={() => { setEditForm({ name: t.name, due_date: t.due_date || '', assigned_to: t.assigned_to || '', priority: t.priority || 'Medium', notes: t.notes || '', task_type: t.task_type || 'task', meeting_time: t.meeting_time || '', attendees: t.attendees || '', item_id: t.item_id || '', recur_type: t.recur_type || 'never', recur_days: t.recur_days || '' }); setEditingTask(t); }}>
               {/* Drag handle — only in manual mode */}
               {isDraggable && (
                 <div style={{ display: 'flex', alignItems: 'center', paddingRight: '10px', color: 'var(--text-3)', fontSize: '14px', cursor: 'grab', userSelect: 'none' }}>⠿</div>
@@ -161,7 +192,7 @@ export default function TasksPage({ data }) {
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', marginBottom: '5px' }}>
                   <div className={`cb ${t.done ? 'checked' : ''}`} style={{ marginTop: '1px' }}
-                    onClick={e => { e.stopPropagation(); data.toggleTask(t.id); }}>
+                    onClick={e => { e.stopPropagation(); toggleTask(t.id); }}>
                     {t.done && <span style={{ color: '#fff', fontSize: '9px', fontWeight: '700' }}>✓</span>}
                   </div>
                   <span style={{ flex: 1, fontWeight: '600', fontSize: '13px', textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--text-3)' : 'var(--text)', lineHeight: '1.4' }}>{t.name}</span>
@@ -173,6 +204,7 @@ export default function TasksPage({ data }) {
                   {!item && <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>Standalone task</span>}
                   {t.assigned_to && <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>· {t.assigned_to}</span>}
                   {t.due_date && <span style={{ fontSize: '11px', color: ov ? 'var(--red)' : 'var(--text-3)', fontWeight: ov ? '600' : '400' }}>· {ov ? 'Overdue ' : ''}{fmt(t.due_date)}</span>}
+                  {t.recur_type && t.recur_type !== 'never' && <span style={{ fontSize: '10px', background: '#F0FBF7', color: '#1D9E75', padding: '1px 6px', borderRadius: '8px', fontWeight: '600', border: '1px solid #C8EDD8' }}>🔁 {t.recur_type}</span>}
                 </div>
               </div>
             </div>
@@ -222,6 +254,7 @@ export default function TasksPage({ data }) {
                 <textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} placeholder="Any extra details…" />
               </div>
             </div>
+            <RecurPicker value={taskForm.recur_type} days={taskForm.recur_days} onChange={v => setTaskForm(p => ({ ...p, recur_type: v }))} onDaysChange={v => setTaskForm(p => ({ ...p, recur_days: v }))} />
             <div className="form-actions">
               <button className="btn btn-sm" onClick={() => setShowAddTask(false)}>Cancel</button>
               <button className="btn btn-sm btn-primary" onClick={handleAddTask}>Save task</button>
@@ -277,10 +310,11 @@ export default function TasksPage({ data }) {
               </div>
               <div className="form-group full"><label>Notes</label><textarea value={editForm.notes} onChange={e => setEditForm(p => ({ ...p, notes: e.target.value }))} /></div>
             </div>
+            <RecurPicker value={editForm.recur_type || 'never'} days={editForm.recur_days || ''} onChange={v => setEditForm(p => ({ ...p, recur_type: v }))} onDaysChange={v => setEditForm(p => ({ ...p, recur_days: v }))} />
             <div className="form-actions">
               <button className="btn btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => { deleteTask(editingTask.id); setEditingTask(null); }}>Delete</button>
               <button className="btn btn-sm" onClick={() => setEditingTask(null)}>Cancel</button>
-              <button className="btn btn-sm btn-primary" onClick={async () => { await updateTask(editingTask.id, { ...editForm, item_id: editForm.item_id || null, meeting_time: editForm.meeting_time || null, attendees: editForm.attendees || null }); setEditingTask(null); }}>Save</button>
+              <button className="btn btn-sm btn-primary" onClick={async () => { await updateTask(editingTask.id, { ...editForm, item_id: editForm.item_id || null, meeting_time: editForm.meeting_time || null, attendees: editForm.attendees || null, recur_type: editForm.recur_type || 'never', recur_days: editForm.recur_days || null }); setEditingTask(null); }}>Save</button>
             </div>
           </div>
         </div>
