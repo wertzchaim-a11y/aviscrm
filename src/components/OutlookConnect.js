@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { getOutlookAuthUrl, isOutlookConnected, clearTokens, parseTokenFromHash, saveTokens } from '../lib/outlookSync';
+import { getOutlookAuthUrl, isOutlookConnected, clearTokens, parseTokenFromHash, saveTokens, getTokenExpiryMinutes } from '../lib/outlookSync';
 
 export default function OutlookConnect({ onConnected }) {
   const [connected, setConnected] = useState(isOutlookConnected());
   const [loading, setLoading] = useState(false);
+  const [minsLeft, setMinsLeft] = useState(getTokenExpiryMinutes());
 
   // On load, check if Microsoft redirected back with a token in the URL hash
   useEffect(() => {
@@ -12,12 +13,26 @@ export default function OutlookConnect({ onConnected }) {
       setLoading(true);
       saveTokens(tokens);
       setConnected(true);
+      setMinsLeft(getTokenExpiryMinutes());
       onConnected && onConnected();
       setLoading(false);
-      // Clean up the hash from the URL
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+  // Check token expiry every minute
+  useEffect(() => {
+    if (!connected) return;
+    const interval = setInterval(() => {
+      const mins = getTokenExpiryMinutes();
+      setMinsLeft(mins);
+      if (mins <= 0) {
+        clearTokens();
+        setConnected(false);
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [connected]);
 
   const handleConnect = () => {
     window.location.href = getOutlookAuthUrl();
@@ -37,7 +52,14 @@ export default function OutlookConnect({ onConnected }) {
 
   if (connected) return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <span style={{ fontSize: '12px', color: 'var(--green)', fontWeight: '500' }}>✓ Outlook</span>
+      <span style={{ fontSize: '12px', color: minsLeft <= 10 ? '#E07070' : 'var(--green)', fontWeight: '500' }}>
+        ✓ Outlook {minsLeft <= 10 ? `(${minsLeft}m left)` : ''}
+      </span>
+      {minsLeft <= 10 && (
+        <button className="btn btn-sm" style={{ fontSize: '11px', color: '#C0392B', borderColor: '#FBBDBD' }} onClick={handleConnect}>
+          Reconnect
+        </button>
+      )}
       <button className="btn btn-sm" style={{ fontSize: '11px', color: 'var(--text-3)' }} onClick={handleDisconnect}>Disconnect</button>
     </div>
   );
