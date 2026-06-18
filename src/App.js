@@ -138,7 +138,10 @@ function AppInner() {
   const handleConvertIdea = (idea) => { setConvertIdea(idea); setPage('pipeline'); };
   const goToPerson = (name) => { setSelectedPerson({ name }); setPage('people'); };
 
-  const overdueBadge = data.tasks.filter(t => !t.done && t.due_date && t.due_date < new Date().toISOString().slice(0, 10)).length;
+  const overdueBadge = React.useMemo(
+    () => data.tasks.filter(t => !t.done && t.due_date && t.due_date < new Date().toISOString().slice(0, 10)).length,
+    [data.tasks]
+  );
 
   return (
     <>
