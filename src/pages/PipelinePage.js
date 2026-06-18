@@ -44,6 +44,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
 
   const [openItem, setOpenItem] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [addForm, setAddForm] = useState(EMPTY_FORM);
   const [newIdeaCol, setNewIdeaCol] = useState(null);
   const [newIdeaForm, setNewIdeaForm] = useState({ title: '', body: '' });
@@ -103,18 +104,27 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
 
   const handleAddItem = async () => {
     if (!addForm.name.trim() || !addForm.facility_id) return;
-    const newItem = await addItem({
-      name: addForm.name, type: addForm.type, facility_id: addForm.facility_id,
-      responsibility: addForm.responsibility, due_date: addForm.due_date || null,
-      assigned_to: addForm.assigned_to || null, progress: 0, manual_progress: false, completed: false,
-    });
-    if (newItem) {
-      for (let i = 0; i < quickSteps.length; i++) await addStep({ item_id: newItem.id, name: quickSteps[i] });
-      for (const t of quickTasks) await addTask({ item_id: newItem.id, name: t.name, due_date: t.due_date || null, assigned_to: t.assigned_to || null, priority: t.priority, notes: t.notes || null, step_id: null, done: false, task_type: t.task_type || 'task', meeting_time: t.meeting_time || null, attendees: t.attendees || null, recur_type: t.recur_type || 'never', recur_days: t.recur_days || null });
-      for (const n of quickNotes) await addNote({ item_id: newItem.id, text: n });
-      for (const id of quickIdeas) await addIdea({ title: id.title, responsibility: addForm.responsibility, body: id.body });
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const newItem = await addItem({
+        name: addForm.name, type: addForm.type, facility_id: addForm.facility_id,
+        responsibility: addForm.responsibility, due_date: addForm.due_date || null,
+        assigned_to: addForm.assigned_to || null,
+      });
+      if (newItem) {
+        // Save all steps, tasks, notes, ideas in parallel
+        await Promise.all([
+          ...quickSteps.map(s => addStep({ item_id: newItem.id, name: s })),
+          ...quickTasks.map(t => addTask({ item_id: newItem.id, name: t.name, due_date: t.due_date || null, assigned_to: t.assigned_to || null, priority: t.priority || 'Medium', notes: t.notes || null, step_id: null, done: false, task_type: t.task_type || 'task', meeting_time: t.meeting_time || null, attendees: t.attendees || null, recur_type: t.recur_type || 'never', recur_days: t.recur_days || null })),
+          ...quickNotes.map(n => addNote({ item_id: newItem.id, text: n })),
+          ...quickIdeas.map(id => addIdea({ title: id.title, responsibility: addForm.responsibility, body: id.body || null, item_id: newItem.id })),
+        ]);
+      }
+      resetForm();
+    } finally {
+      setIsSaving(false);
     }
-    resetForm();
   };
 
   const handleAddIdea = async (resp) => {
@@ -416,7 +426,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
 
             <div className="form-actions" style={{ marginTop: '16px' }}>
               <button className="btn btn-sm" onClick={resetForm}>Cancel</button>
-              <button className="btn btn-sm btn-primary" onClick={handleAddItem}>Save project</button>
+              <button className="btn btn-sm btn-primary" onClick={handleAddItem} disabled={isSaving} style={{ opacity: isSaving ? 0.6 : 1 }}>{isSaving ? 'Saving…' : 'Save project'}</button>
             </div>
           </div>
         </div>
