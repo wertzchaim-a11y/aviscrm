@@ -115,6 +115,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
   const doneTasks = itemTasks.filter(t => t.done);
   const itemNotes = notes.filter(n => n.item_id === item.id);
   const respIdeas = ideas.filter(i => i.responsibility === item.responsibility);
+  const projectIdeas = ideas.filter(i => i.item_id === item.id);
   const today = new Date().toISOString().slice(0, 10);
   const ov = isOverdue(item.due_date) && !item.completed;
   const daysLeft = item.due_date ? daysUntil(item.due_date) : null;
@@ -125,7 +126,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
   const handleAddStep = async () => { if (!newStep.trim()) return; await onAddStep({ item_id: item.id, name: newStep.trim() }); setNewStep(''); setShowStepForm(false); };
   const handleAddTask = async () => {
     if (!taskForm.name.trim()) return;
-    await onAddTask({ ...taskForm, item_id: item.id, step_id: taskForm.step_id || null, task_type: taskForm.task_type || 'task', meeting_time: taskForm.meeting_time || null, attendees: taskForm.attendees || null, recur_type: taskForm.recur_type || 'never', recur_days: taskForm.recur_days || null });
+    await onAddTask({ ...taskForm, due_date: taskForm.due_date || null, assigned_to: taskForm.assigned_to || null, notes: taskForm.notes || null, item_id: item.id, step_id: taskForm.step_id || null, task_type: taskForm.task_type || 'task', meeting_time: taskForm.meeting_time || null, attendees: taskForm.attendees || null, recur_type: taskForm.recur_type || 'never', recur_days: taskForm.recur_days || null });
     setTaskForm({ name: '', due_date: '', meeting_time: '', assigned_to: '', priority: 'Medium', step_id: '', notes: '', task_type: 'task', attendees: '', recur_type: 'never', recur_days: '' });
     setShowTaskForm(false);
   };
@@ -134,8 +135,8 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
     await onToggleTask(taskId);
   };
   const handleSaveEdit = async () => {
-    await onUpdateTask(activeTask.id, { ...editForm, recur_type: editForm.recur_type || 'never', recur_days: editForm.recur_days || null, meeting_time: editForm.meeting_time || null, attendees: editForm.attendees || null, item_id: editForm.item_id || null });
-    setActiveTask({ ...activeTask, ...editForm });
+    await onUpdateTask(activeTask.id, { ...editForm, due_date: editForm.due_date || null, assigned_to: editForm.assigned_to || null, notes: editForm.notes || null, recur_type: editForm.recur_type || 'never', recur_days: editForm.recur_days || null, meeting_time: editForm.meeting_time || null, attendees: editForm.attendees || null, item_id: editForm.item_id || activeTask.item_id || null });
+    setActiveTask(prev => ({ ...prev, ...editForm, due_date: editForm.due_date || null, assigned_to: editForm.assigned_to || null }));
     setEditingTask(false);
   };
   const handleDeleteItem = async () => { await onDeleteItem(item.id); onClose(); };
@@ -191,7 +192,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
           ) : (
             <div style={{ padding: '12px 18px', display: 'flex', gap: '8px' }}>
               <button className="btn btn-sm btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={async () => { await handleToggleTask(activeTask.id); setActiveTask(p => ({ ...p, done: !p.done })); }}>{activeTask.done ? '↩ Reopen' : '✓ Mark done'}</button>
-              <button className="btn btn-sm" onClick={() => { setEditForm({ name: activeTask.name, due_date: activeTask.due_date || '', meeting_time: activeTask.meeting_time || '', assigned_to: activeTask.assigned_to || '', priority: activeTask.priority || 'Medium', notes: activeTask.notes || '', task_type: activeTask.task_type || 'task', attendees: activeTask.attendees || '', recur_type: activeTask.recur_type || 'never', recur_days: activeTask.recur_days || '' }); setEditingTask(true); }}>Edit</button>
+              <button className="btn btn-sm" onClick={() => { setEditForm({ name: activeTask.name, due_date: activeTask.due_date || '', meeting_time: activeTask.meeting_time || '', assigned_to: activeTask.assigned_to || '', priority: activeTask.priority || 'Medium', notes: activeTask.notes || '', task_type: activeTask.task_type || 'task', attendees: activeTask.attendees || '', recur_type: activeTask.recur_type || 'never', recur_days: activeTask.recur_days || '', item_id: activeTask.item_id || '' }); setEditingTask(true); }}>Edit</button>
             </div>
           )}
         </div>
@@ -361,6 +362,23 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                 </div>
               ))}
               {itemNotes.length > 3 && <div onClick={() => setActiveTab('notes')} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--green)', cursor: 'pointer', padding: '4px 0', fontWeight: '600' }}>View all {itemNotes.length} notes →</div>}
+
+              {/* Project Ideas in Overview */}
+              {projectIdeas.length > 0 && (
+                <>
+                  <div style={{ height: '1px', background: 'var(--border)', margin: '14px 0' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: '.5px' }}>💡 Ideas</span>
+                    <button className="btn btn-sm" style={{ fontSize: '10px' }} onClick={() => setActiveTab('ideas')}>See all →</button>
+                  </div>
+                  {projectIdeas.map(idea => (
+                    <div key={idea.id} style={{ padding: '9px 12px', marginBottom: '6px', borderRadius: '10px', background: '#FFFDF0', border: '1px solid #FEE08B', cursor: 'pointer' }} onClick={() => setActiveTab('ideas')}>
+                      <div style={{ fontSize: '12px', fontWeight: '600' }}>💡 {idea.title}</div>
+                      {idea.body && <div style={{ fontSize: '11px', color: 'var(--text-2)', lineHeight: '1.5', marginTop: '2px' }}>{idea.body}</div>}
+                    </div>
+                  ))}
+                </>
+              )}
 
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
                 <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: item.completed ? 'var(--gray)' : 'var(--green)' }} onClick={() => onUpdateItem(item.id, { completed: !item.completed, completed_at: !item.completed ? new Date().toISOString() : null })}>
