@@ -233,7 +233,7 @@ export default function DashboardPage({ data, onNavigate }) {
                       <div style={{ fontSize: '12px', fontWeight: '500' }}>{t.name}</div>
                       <div style={{ fontSize: '10px', color: 'var(--text-3)', marginTop: '1px' }}>Due {fmt(t.due_date)} · {fac?.name || 'Standalone'}</div>
                     </div>
-                    <span style={{ fontSize: '9px', padding: '2px 7px', borderRadius: '20px', fontWeight: '600', flexShrink: 0, background: t.priority === 'High' ? '#FEE2E2' : '#FEF3C7', color: t.priority === 'High' ? '#C0392B' : '#92400E' }}>{t.priority}</span>
+                    <span style={{ fontSize: '9px', padding: '2px 7px', borderRadius: '20px', fontWeight: '600', flexShrink: 0, background: t.task_type === 'meeting' ? '#FDEAEA' : t.priority === 'High' ? '#FEE2E2' : '#FEF3C7', color: t.task_type === 'meeting' ? '#A93226' : t.priority === 'High' ? '#C0392B' : '#92400E' }}>{t.task_type === 'meeting' ? '📅' : t.priority}</span>
                   </div>
                 );
               })}
