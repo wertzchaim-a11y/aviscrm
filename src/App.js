@@ -10,7 +10,7 @@ import IdeasPage from './pages/IdeasPage';
 import ArchivePage from './pages/ArchivePage';
 import NotesPage from './pages/NotesPage';
 import PeoplePage from './pages/PeoplePage';
-
+ 
 const NAV_MAIN = [
   { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
   { id: 'pipeline', label: 'Pipeline', icon: '⬡' },
@@ -37,19 +37,19 @@ const NAV_MORE = [
   { id: 'notes', label: 'Memos', icon: '📝' },
   { id: 'archive', label: 'Completed', icon: '✓' },
 ];
-
+ 
 function SearchBar({ data, onNavigate }) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const { facilities, items, tasks } = data;
-
+ 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
-
+ 
   const q = query.toLowerCase().trim();
   const results = q.length < 2 ? [] : [
     ...tasks.filter(t => t.name.toLowerCase().includes(q)).slice(0, 3).map(t => {
@@ -62,7 +62,7 @@ function SearchBar({ data, onNavigate }) {
       return { type: 'project', label: i.name, sub: `${fac?.name || ''} · ${i.responsibility}`, icon: '◆', bg: '#EEEDFE', color: '#3C3489', nav: 'pipeline' };
     }),
   ];
-
+ 
   return (
     <div ref={ref} style={{ position: 'relative', flex: 1, maxWidth: '440px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg)', border: `1.5px solid ${open ? 'var(--green)' : 'var(--border)'}`, borderRadius: '10px', padding: '7px 12px', transition: 'border-color 0.15s' }}>
@@ -108,7 +108,7 @@ function SearchBar({ data, onNavigate }) {
     </div>
   );
 }
-
+ 
 function NavButton({ n, page, setPage, badge }) {
   const active = page === n.id;
   return (
@@ -120,7 +120,7 @@ function NavButton({ n, page, setPage, badge }) {
     </button>
   );
 }
-
+ 
 function AppInner() {
   const { user, loading: authLoading, signOut } = useAuth();
   const data = useData();
@@ -129,20 +129,21 @@ function AppInner() {
   const [ideasResp, setIdeasResp] = useState('');
   const [convertIdea, setConvertIdea] = useState(null);
   const [selectedPerson, setSelectedPerson] = useState(null);
-
+ 
+  // Must be before any conditional returns (rules of hooks)
+  const overdueBadge = React.useMemo(
+    () => (data.tasks || []).filter(t => !t.done && t.due_date && t.due_date < new Date().toISOString().slice(0, 10)).length,
+    [data.tasks]
+  );
+ 
   if (authLoading) return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: '14px' }}>Loading…</div>;
   if (!user) return <LoginPage />;
   if (data.loading) return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: '14px' }}>Loading data…</div>;
-
+ 
   const goIdeas = (resp) => { setIdeasResp(resp || ''); setPage('ideas'); };
   const handleConvertIdea = (idea) => { setConvertIdea(idea); setPage('pipeline'); };
   const goToPerson = (name) => { setSelectedPerson({ name }); setPage('people'); };
-
-  const overdueBadge = React.useMemo(
-    () => data.tasks.filter(t => !t.done && t.due_date && t.due_date < new Date().toISOString().slice(0, 10)).length,
-    [data.tasks]
-  );
-
+ 
   return (
     <>
       {/* Desktop sidebar */}
@@ -157,7 +158,7 @@ function AppInner() {
             </div>
           </div>
         </div>
-
+ 
         {/* Nav sections */}
         <div style={{ flex: 1, overflow: 'auto', padding: '10px 8px 4px' }}>
           <div style={{ fontSize: '9px', fontWeight: '700', color: '#C0C5D0', textTransform: 'uppercase', letterSpacing: '.8px', padding: '0 8px', marginBottom: '4px' }}>Main</div>
@@ -167,7 +168,7 @@ function AppInner() {
           <div style={{ fontSize: '9px', fontWeight: '700', color: '#C0C5D0', textTransform: 'uppercase', letterSpacing: '.8px', padding: '10px 8px 4px' }}>Archive</div>
           {NAV_OTHER.map(n => <NavButton key={n.id} n={n} page={page} setPage={setPage} badge={0} />)}
         </div>
-
+ 
         {/* User footer */}
         <div style={{ padding: '10px 12px 12px', borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -180,7 +181,7 @@ function AppInner() {
           <button onClick={signOut} style={{ width: '100%', padding: '6px 10px', fontSize: '11px', color: 'var(--text-3)', background: 'transparent', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', fontFamily: 'var(--font)' }}>Sign out</button>
         </div>
       </nav>
-
+ 
       {/* Main content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
         {/* Top header with search */}
@@ -190,7 +191,7 @@ function AppInner() {
             <button className="btn btn-primary btn-sm" onClick={() => setPage('pipeline')}>+ Add</button>
           </div>
         </div>
-
+ 
         {/* Pages */}
         {page === 'dashboard' && <DashboardPage data={data} onNavigate={setPage} />}
         {page === 'pipeline' && <PipelinePage data={data} onGoIdeas={goIdeas} convertIdea={convertIdea} onConvertIdeaDone={() => setConvertIdea(null)} />}
@@ -200,7 +201,7 @@ function AppInner() {
         {page === 'notes' && <NotesPage data={data} onGoToPerson={goToPerson} />}
         {page === 'people' && <PeoplePage data={data} initialPerson={selectedPerson} />}
         {page === 'archive' && <ArchivePage data={data} />}
-
+ 
         {/* Mobile bottom nav */}
         <nav className="mobile-only" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--surface)', borderTop: '1px solid var(--border)', display: 'flex', paddingBottom: 'var(--safe-bottom)', zIndex: 50 }}>
           {NAV_MOBILE.map(n => (
@@ -217,7 +218,7 @@ function AppInner() {
             <span style={{ fontSize: '9px', fontWeight: '400' }}>More</span>
           </button>
         </nav>
-
+ 
         {/* More menu popup */}
         {showMore && (
           <div className="mobile-only" style={{ position: 'fixed', bottom: '56px', left: 0, right: 0, background: 'var(--surface)', borderTop: '1px solid var(--border)', zIndex: 49, padding: '8px' }}
@@ -235,7 +236,8 @@ function AppInner() {
     </>
   );
 }
-
+ 
 export default function App() {
   return <AuthProvider><AppInner /></AuthProvider>;
 }
+ 
