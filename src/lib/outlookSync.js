@@ -53,11 +53,17 @@ export function isOutlookConnected() {
 export async function getValidAccessToken() {
   const { accessToken, expiresAt } = getStoredTokens();
   if (!accessToken) return null;
-  if (Date.now() > expiresAt - 5 * 60 * 1000) {
+  if (Date.now() > expiresAt - 60 * 1000) { // Only clear within last 60 seconds
     clearTokens();
     return null;
   }
   return accessToken;
+}
+
+export function getTokenExpiryMinutes() {
+  const { expiresAt } = getStoredTokens();
+  if (!expiresAt) return 0;
+  return Math.max(0, Math.round((expiresAt - Date.now()) / 60000));
 }
 
 // Fetch events from Microsoft Graph
