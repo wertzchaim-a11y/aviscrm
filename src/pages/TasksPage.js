@@ -48,6 +48,7 @@ export default function TasksPage({ data }) {
   const [editForm, setEditForm] = useState({});
   const [openItem, setOpenItem] = useState(null);
   const [showAddTask, setShowAddTask] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', task_type: 'task', meeting_time: '', attendees: '', recur_type: 'never', recur_days: '' });
 
   const handleSortChange = (mode) => { setSortMode(mode); localStorage.setItem('tasks-sort', mode); };
@@ -86,24 +87,29 @@ export default function TasksPage({ data }) {
   };
 
   const handleAddTask = async () => {
-    if (!taskForm.name.trim()) return;
-    await addTask({
-      name: taskForm.name.trim(),
-      due_date: taskForm.due_date || null,
-      assigned_to: taskForm.assigned_to || null,
-      priority: taskForm.priority || 'Medium',
-      notes: taskForm.notes || null,
-      item_id: taskForm.item_id || null,
-      step_id: null,
-      done: false,
-      task_type: taskForm.task_type || 'task',
-      meeting_time: taskForm.meeting_time || null,
-      attendees: taskForm.attendees || null,
-      recur_type: taskForm.recur_type || 'never',
-      recur_days: taskForm.recur_days || null,
-    });
-    setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', task_type: 'task', meeting_time: '', attendees: '', recur_type: 'never', recur_days: '' });
-    setShowAddTask(false);
+    if (!taskForm.name.trim() || isSaving) return;
+    setIsSaving(true);
+    try {
+      await addTask({
+        name: taskForm.name.trim(),
+        due_date: taskForm.due_date || null,
+        assigned_to: taskForm.assigned_to || null,
+        priority: taskForm.priority || 'Medium',
+        notes: taskForm.notes || null,
+        item_id: taskForm.item_id || null,
+        step_id: null,
+        done: false,
+        task_type: taskForm.task_type || 'task',
+        meeting_time: taskForm.meeting_time || null,
+        attendees: taskForm.attendees || null,
+        recur_type: taskForm.recur_type || 'never',
+        recur_days: taskForm.recur_days || null,
+      });
+      setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', task_type: 'task', meeting_time: '', attendees: '', recur_type: 'never', recur_days: '' });
+      setShowAddTask(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const openItemObj = items.find(i => i.id === openItem);
@@ -195,8 +201,10 @@ export default function TasksPage({ data }) {
                     onClick={e => { e.stopPropagation(); toggleTask(t.id); }}>
                     {t.done && <span style={{ color: '#fff', fontSize: '9px', fontWeight: '700' }}>✓</span>}
                   </div>
-                  <span style={{ flex: 1, fontWeight: '600', fontSize: '13px', textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--text-3)' : 'var(--text)', lineHeight: '1.4' }}>{t.name}</span>
-                  <span className={`badge ${PRI_BADGE[t.priority]}`}>{t.priority}</span>
+                  <span style={{ flex: 1, fontWeight: '600', fontSize: '13px', textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--text-3)' : 'var(--text)', lineHeight: '1.4' }}>{t.task_type === 'meeting' ? '📅 ' : ''}{t.name}</span>
+                  {t.task_type === 'meeting'
+                    ? <span style={{ fontSize: '9px', padding: '2px 7px', borderRadius: '20px', fontWeight: '600', background: '#FDEAEA', color: '#A93226', flexShrink: 0 }}>Meeting</span>
+                    : <span className={`badge ${PRI_BADGE[t.priority]}`}>{t.priority}</span>}
                 </div>
                 <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', paddingLeft: '25px' }}>
                   {fac && <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{fac.name}</span>}
@@ -220,29 +228,39 @@ export default function TasksPage({ data }) {
               <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Add task</h2>
               <button className="btn-icon" onClick={() => setShowAddTask(false)} style={{ fontSize: '18px' }}>×</button>
             </div>
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+              {[['task', '☑ Task'], ['meeting', '📅 Meeting']].map(([t, l]) => (
+                <button key={t} onClick={() => setTaskForm(p => ({ ...p, task_type: t }))}
+                  style={{ flex: 1, padding: '6px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: taskForm.task_type === t ? 'var(--text)' : 'var(--surface)', color: taskForm.task_type === t ? '#fff' : 'var(--text-2)' }}>
+                  {l}
+                </button>
+              ))}
+            </div>
             <div className="form-row">
               <div className="form-group full">
-                <label>Task name</label>
-                <input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="What needs to be done?" />
+                <label>{taskForm.task_type === 'meeting' ? 'Meeting name' : 'Task name'}</label>
+                <input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder={taskForm.task_type === 'meeting' ? 'Meeting name…' : 'What needs to be done?'} />
               </div>
               <div className="form-group">
-                <label>Due date</label>
+                <label>Date</label>
                 <input type="date" value={taskForm.due_date} onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} />
               </div>
+              {taskForm.task_type === 'meeting' && <div className="form-group"><label>Time</label><input type="time" value={taskForm.meeting_time} onChange={e => setTaskForm(p => ({ ...p, meeting_time: e.target.value }))} /></div>}
               <div className="form-group">
                 <label>Assigned to</label>
                 <input value={taskForm.assigned_to} onChange={e => setTaskForm(p => ({ ...p, assigned_to: e.target.value }))} placeholder="Name" />
               </div>
-              <div className="form-group">
+              {taskForm.task_type !== 'meeting' && <div className="form-group">
                 <label>Priority</label>
                 <select value={taskForm.priority} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value }))}>
                   <option>High</option><option>Medium</option><option>Low</option>
                 </select>
-              </div>
+              </div>}
+              {taskForm.task_type === 'meeting' && <div className="form-group full"><label>Attendees</label><input value={taskForm.attendees} onChange={e => setTaskForm(p => ({ ...p, attendees: e.target.value }))} placeholder="Names separated by commas…" /></div>}
               <div className="form-group">
                 <label>Link to project (optional)</label>
                 <select value={taskForm.item_id} onChange={e => setTaskForm(p => ({ ...p, item_id: e.target.value }))}>
-                  <option value="">— Standalone task —</option>
+                  <option value="">— Standalone —</option>
                   {items.map(i => {
                     const fac = facilities.find(f => f.id === i.facility_id);
                     return <option key={i.id} value={i.id}>{fac ? fac.name + ' · ' : ''}{i.name}</option>;
@@ -257,7 +275,7 @@ export default function TasksPage({ data }) {
             <RecurPicker value={taskForm.recur_type} days={taskForm.recur_days} onChange={v => setTaskForm(p => ({ ...p, recur_type: v }))} onDaysChange={v => setTaskForm(p => ({ ...p, recur_days: v }))} />
             <div className="form-actions">
               <button className="btn btn-sm" onClick={() => setShowAddTask(false)}>Cancel</button>
-              <button className="btn btn-sm btn-primary" onClick={handleAddTask}>Save task</button>
+              <button className="btn btn-sm btn-primary" onClick={handleAddTask} disabled={isSaving} style={{ opacity: isSaving ? 0.6 : 1 }}>{isSaving ? 'Saving…' : `Save ${taskForm.task_type === 'meeting' ? 'meeting' : 'task'}`}</button>
             </div>
           </div>
         </div>
@@ -314,7 +332,7 @@ export default function TasksPage({ data }) {
             <div className="form-actions">
               <button className="btn btn-sm" style={{ color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => { deleteTask(editingTask.id); setEditingTask(null); }}>Delete</button>
               <button className="btn btn-sm" onClick={() => setEditingTask(null)}>Cancel</button>
-              <button className="btn btn-sm btn-primary" onClick={async () => { await updateTask(editingTask.id, { ...editForm, item_id: editForm.item_id || null, meeting_time: editForm.meeting_time || null, attendees: editForm.attendees || null, recur_type: editForm.recur_type || 'never', recur_days: editForm.recur_days || null }); setEditingTask(null); }}>Save</button>
+              <button className="btn btn-sm btn-primary" onClick={async () => { await updateTask(editingTask.id, { ...editForm, due_date: editForm.due_date || null, assigned_to: editForm.assigned_to || null, notes: editForm.notes || null, item_id: editForm.item_id || null, meeting_time: editForm.meeting_time || null, attendees: editForm.attendees || null, recur_type: editForm.recur_type || 'never', recur_days: editForm.recur_days || null }); setEditingTask(null); }}>Save</button>
             </div>
           </div>
         </div>
