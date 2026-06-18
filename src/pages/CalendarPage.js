@@ -51,6 +51,7 @@ export default function CalendarPage({ data }) {
   const [editingTask, setEditingTask] = useState(false);
   const [editTaskForm, setEditTaskForm] = useState({});
   const [selectedOutlook, setSelectedOutlook] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [addType, setAddType] = useState('task');
   const [itemForm, setItemForm] = useState({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', event_time: '', assigned_to: '' });
   const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', recur_type: 'never', recur_days: '' });
@@ -99,27 +100,43 @@ export default function CalendarPage({ data }) {
   const move = (dir) => { let m = month + dir, y = year; if (m > 11) { m = 0; y++; } if (m < 0) { m = 11; y--; } setMonth(m); setYear(y); };
 
   const handleSave = async () => {
-    if (addType === 'task') {
-      if (!taskForm.name.trim()) return;
-      await addTask({ name: taskForm.name.trim(), due_date: taskForm.due_date || null, assigned_to: taskForm.assigned_to || null, priority: taskForm.priority || 'Medium', notes: taskForm.notes || null, item_id: taskForm.item_id || null, step_id: null, done: false, task_type: 'task', recur_type: taskForm.recur_type || 'never', recur_days: taskForm.recur_days || null });
-    } else if (addType === 'meeting') {
-      if (!meetingForm.name.trim()) return;
-      await addTask({ name: meetingForm.name.trim(), due_date: meetingForm.due_date || null, meeting_time: meetingForm.meeting_time || null, assigned_to: meetingForm.assigned_to || null, attendees: meetingForm.attendees || null, notes: meetingForm.notes || null, item_id: meetingForm.item_id || null, step_id: null, done: false, task_type: 'meeting', priority: 'Medium', recur_type: meetingForm.recur_type || 'never', recur_days: meetingForm.recur_days || null });
-    } else {
-      if (!itemForm.name.trim() || !itemForm.facility_id) return;
-      const newItem = await addItem({ ...itemForm, type: addType });
-      if (newItem) {
-        for (const s of quickSteps) await addStep({ item_id: newItem.id, name: s });
-        for (const t of quickTasks) await addTask({ item_id: newItem.id, name: t.name, due_date: t.due_date || null, priority: t.priority || 'Medium', notes: t.notes || null, step_id: null, done: false, task_type: t.task_type || 'task', meeting_time: t.meeting_time || null, attendees: t.attendees || null, recur_type: t.recur_type || 'never', recur_days: t.recur_days || null });
-        for (const n of quickNotes) await addNote({ item_id: newItem.id, text: n });
-        for (const id of quickIdeas) await addIdea({ title: id.title, responsibility: itemForm.responsibility, body: id.body });
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      if (addType === 'task') {
+        if (!taskForm.name.trim()) return;
+        await addTask({ name: taskForm.name.trim(), due_date: taskForm.due_date || null, assigned_to: taskForm.assigned_to || null, priority: taskForm.priority || 'Medium', notes: taskForm.notes || null, item_id: taskForm.item_id || null, step_id: null, done: false, task_type: 'task', recur_type: taskForm.recur_type || 'never', recur_days: taskForm.recur_days || null });
+      } else if (addType === 'meeting') {
+        if (!meetingForm.name.trim()) return;
+        await addTask({ name: meetingForm.name.trim(), due_date: meetingForm.due_date || null, meeting_time: meetingForm.meeting_time || null, assigned_to: meetingForm.assigned_to || null, attendees: meetingForm.attendees || null, notes: meetingForm.notes || null, item_id: meetingForm.item_id || null, step_id: null, done: false, task_type: 'meeting', priority: 'Medium', recur_type: meetingForm.recur_type || 'never', recur_days: meetingForm.recur_days || null });
+      } else {
+        if (!itemForm.name.trim() || !itemForm.facility_id) return;
+        const newItem = await addItem({
+          name: itemForm.name.trim(),
+          type: addType,
+          facility_id: itemForm.facility_id,
+          responsibility: itemForm.responsibility,
+          due_date: itemForm.due_date || null,
+          event_time: itemForm.event_time || null,
+          assigned_to: itemForm.assigned_to || null,
+        });
+        if (newItem) {
+          await Promise.all([
+            ...quickSteps.map(s => addStep({ item_id: newItem.id, name: s })),
+            ...quickTasks.map(t => addTask({ item_id: newItem.id, name: t.name, due_date: t.due_date || null, priority: t.priority || 'Medium', notes: t.notes || null, step_id: null, done: false, task_type: t.task_type || 'task', meeting_time: t.meeting_time || null, attendees: t.attendees || null, recur_type: t.recur_type || 'never', recur_days: t.recur_days || null })),
+            ...quickNotes.map(n => addNote({ item_id: newItem.id, text: n })),
+            ...quickIdeas.map(id => addIdea({ title: id.title, responsibility: itemForm.responsibility, body: id.body || null, item_id: newItem.id })),
+          ]);
+        }
       }
+      resetAdd();
+    } finally {
+      setIsSaving(false);
     }
-    resetAdd();
   };
 
   const handleSaveTaskEdit = async () => {
-    await updateTask(selectedTask.id, { ...editTaskForm, recur_type: editTaskForm.recur_type || 'never', recur_days: editTaskForm.recur_days || null, meeting_time: editTaskForm.meeting_time || null, attendees: editTaskForm.attendees || null });
+    await updateTask(selectedTask.id, { ...editTaskForm, due_date: editTaskForm.due_date || null, assigned_to: editTaskForm.assigned_to || null, notes: editTaskForm.notes || null, recur_type: editTaskForm.recur_type || 'never', recur_days: editTaskForm.recur_days || null, meeting_time: editTaskForm.meeting_time || null, attendees: editTaskForm.attendees || null });
     setSelectedTask(p => ({ ...p, ...editTaskForm }));
     setEditingTask(false);
   };
@@ -239,7 +256,7 @@ export default function CalendarPage({ data }) {
                 </div>
                 {evs.slice(0, 3).map((ev, ei) => (
                   <div key={ei}
-                    onClick={e => { e.stopPropagation(); handleEvClick(ev); }}
+                    onClick={e => { e.stopPropagation(); setSelectedDate(ds); }}
                     style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '0 5px 5px 0', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: '500', opacity: ev.task?.done ? 0.45 : 1, textDecoration: ev.task?.done ? 'line-through' : 'none', borderLeft: `3px solid ${clsBorder[ev.cls] || '#aaa'}`, cursor: 'pointer', ...clsColor[ev.cls] }}>
                     {clsIcon[ev.cls]}{ev.label}
                   </div>
@@ -414,7 +431,7 @@ export default function CalendarPage({ data }) {
             )}
             <div className="form-actions" style={{ marginTop: '14px' }}>
               <button className="btn btn-sm" onClick={resetAdd}>Cancel</button>
-              <button className="btn btn-sm btn-primary" onClick={handleSave}>Save {addType === 'meeting' ? 'meeting' : addType === 'task' ? 'task' : addType}</button>
+              <button className="btn btn-sm btn-primary" onClick={handleSave} disabled={isSaving} style={{ opacity: isSaving ? 0.6 : 1 }}>{isSaving ? 'Saving…' : `Save ${addType === 'meeting' ? 'meeting' : addType === 'task' ? 'task' : addType}`}</button>
             </div>
           </div>
         </div>
