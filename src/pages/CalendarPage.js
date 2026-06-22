@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react';
 import ItemSheet from '../components/ItemSheet';
 import OutlookConnect from '../components/OutlookConnect';
 import { getValidAccessToken, isOutlookConnected, syncOutlookToSupabase, shouldSync } from '../lib/outlookSync';
-
+ 
 const RESP_COLS = ['Marketing', 'Employee retention', 'Recruitment', 'Other'];
 function getDaysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
 function getFirstDay(y, m) { return new Date(y, m, 1).getDay(); }
 function fmtTime(t) { if (!t) return ''; const [h, m] = t.split(':'); const hr = parseInt(h); return `${hr % 12 || 12}:${m} ${hr < 12 ? 'AM' : 'PM'}`; }
-
+ 
 const RECUR_OPTS = ['never', 'daily', 'weekly', 'biweekly', 'monthly'];
 const RECUR_LABEL = { never: 'Never', daily: 'Daily', weekly: 'Weekly', biweekly: 'Bi-weekly', monthly: 'Monthly' };
 const DOW_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
-
+ 
 function RecurPicker({ value, days, onChange, onDaysChange }) {
   return (
     <div style={{ marginTop: '8px' }}>
@@ -37,7 +37,7 @@ function RecurPicker({ value, days, onChange, onDaysChange }) {
     </div>
   );
 }
-
+ 
 export default function CalendarPage({ data }) {
   const { facilities, items, steps, tasks, notes, ideas, outlookDbEvents, addItem, addTask, addStep, toggleStep, deleteStep, updateItem, deleteItem, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, calcProgress, refreshOutlookEvents } = data;
   const now = new Date();
@@ -67,12 +67,12 @@ export default function CalendarPage({ data }) {
   const [taskInput, setTaskInput] = useState({ name: '', due_date: '', meeting_time: '', priority: 'Medium', notes: '', attendees: '', task_type: 'task', recur_type: 'never', recur_days: '' });
   const [noteInput, setNoteInput] = useState('');
   const [ideaInput, setIdeaInput] = useState({ title: '', body: '' });
-
+ 
   const todayStr = now.toISOString().slice(0, 10);
   const daysInMonth = getDaysInMonth(year, month);
   const firstDay = getFirstDay(year, month);
   const monthStr = new Date(year, month, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
+ 
   useEffect(() => {
     const doSync = async () => {
       if (!outlookConnected || !shouldSync()) return;
@@ -85,7 +85,7 @@ export default function CalendarPage({ data }) {
     };
     doSync();
   }, []);
-
+ 
   const resetAdd = () => {
     setShowAdd(false); setActiveTab('details'); setAddType('task');
     setQuickSteps([]); setQuickTasks([]); setQuickNotes([]); setQuickIdeas([]);
@@ -95,10 +95,10 @@ export default function CalendarPage({ data }) {
     setTaskForm({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', recur_type: 'never', recur_days: '' });
     setItemForm({ name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', event_time: '', assigned_to: '' });
   };
-
+ 
   const toggleFilter = (key) => setFilters(p => ({ ...p, [key]: !p[key] }));
   const move = (dir) => { let m = month + dir, y = year; if (m > 11) { m = 0; y++; } if (m < 0) { m = 11; y--; } setMonth(m); setYear(y); };
-
+ 
   const handleSave = async () => {
     if (isSaving) return;
     setIsSaving(true);
@@ -134,13 +134,13 @@ export default function CalendarPage({ data }) {
       setIsSaving(false);
     }
   };
-
+ 
   const handleSaveTaskEdit = async () => {
     await updateTask(selectedTask.id, { ...editTaskForm, due_date: editTaskForm.due_date || null, assigned_to: editTaskForm.assigned_to || null, notes: editTaskForm.notes || null, recur_type: editTaskForm.recur_type || 'never', recur_days: editTaskForm.recur_days || null, meeting_time: editTaskForm.meeting_time || null, attendees: editTaskForm.attendees || null });
     setSelectedTask(p => ({ ...p, ...editTaskForm }));
     setEditingTask(false);
   };
-
+ 
   const convertOutlookToProject = (ev) => {
     setItemForm({ name: ev.subject || '', type: 'meeting', facility_id: '', responsibility: 'Marketing', due_date: ev.start_date || '', event_time: ev.start_time || '', assigned_to: '' });
     setAddType('project');
@@ -149,7 +149,7 @@ export default function CalendarPage({ data }) {
     setSelectedDate(null);
     setShowAdd(true);
   };
-
+ 
   const evMap = {};
   const addEv = (date, entry) => { if (!date) return; (evMap[date] = evMap[date] || []).push(entry); };
   items.forEach(item => {
@@ -165,8 +165,8 @@ export default function CalendarPage({ data }) {
     const item = items.find(i => i.id === t.item_id);
     addEv(t.due_date, { label: t.name, cls: 'mtg', id: item?.id, task_id: t.id, task: t });
   });
-  if (outlookConnected) {
-    outlookDbEvents.forEach(ev => {
+  // Always show Outlook events from DB — connection only needed to sync new ones
+  outlookDbEvents.forEach(ev => {
       const date = ev.start_date;
       const accepted = ev.response_status === 'accepted' || ev.response_status === 'organizer';
       const isMtg = ev.has_attendees || ev.is_online_meeting;
@@ -175,8 +175,7 @@ export default function CalendarPage({ data }) {
       if (!isMtg && !filters.event) return;
       if (date) addEv(date, { label: ev.subject, cls, id: null, outlookEv: ev });
     });
-  }
-
+ 
   const clsColor = {
     proj: { background: '#EEEDFE', color: '#3C3489' }, evt: { background: '#F0EEFF', color: '#5B21B6' },
     tsk: { background: '#EBF3FD', color: '#0C447C' }, mtg: { background: '#FDEAEA', color: '#A93226' },
@@ -185,10 +184,10 @@ export default function CalendarPage({ data }) {
   };
   const clsBorder = { proj: '#4F46E5', evt: '#7C3AED', tsk: '#0C447C', mtg: '#C0392B', mtg_item: '#C0392B', outlook_mtg_yes: '#C0392B', outlook_mtg_maybe: '#E07070', outlook_evt: '#7C3AED' };
   const clsIcon = { tsk: '☑ ', mtg: '📅 ', mtg_item: '📅 ', proj: '◆ ', evt: '★ ', outlook_mtg_yes: '📅 ', outlook_mtg_maybe: '📅 ', outlook_evt: '★ ' };
-
+ 
   const openItemObj = items.find(i => i.id === openItem);
   const openFacility = facilities.find(f => f.id === openItemObj?.facility_id);
-
+ 
   const handleEvClick = (ev) => {
     if (ev.outlookEv) { setSelectedOutlook(ev.outlookEv); setSelectedDate(null); return; }
     if (ev.cls === 'tsk' || ev.cls === 'mtg') {
@@ -198,7 +197,7 @@ export default function CalendarPage({ data }) {
     }
     if (ev.id) { setOpenItem(ev.id); setSelectedDate(null); }
   };
-
+ 
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '0 0 80px' }}>
       {/* Header */}
@@ -229,7 +228,7 @@ export default function CalendarPage({ data }) {
           </div>
         </div>
       </div>
-
+ 
       {/* Calendar grid */}
       <div style={{ padding: '0 8px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', marginBottom: '2px' }}>
@@ -267,7 +266,7 @@ export default function CalendarPage({ data }) {
           })}
         </div>
       </div>
-
+ 
       {/* Add modal */}
       {showAdd && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && resetAdd()}>
@@ -436,11 +435,11 @@ export default function CalendarPage({ data }) {
           </div>
         </div>
       )}
-
+ 
       {/* ItemSheet for projects/events/meeting items */}
       {openItemObj && (
         <ItemSheet item={openItemObj} facility={openFacility}
-          steps={steps} tasks={tasks} notes={notes} ideas={ideas}
+          steps={steps} tasks={tasks} notes={notes} ideas={ideas} facilityNotes={data.facilityNotes || []}
           onClose={() => setOpenItem(null)}
           onUpdateItem={updateItem} onDeleteItem={deleteItem} onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
           onAddTask={addTask} onUpdateTask={updateTask} onToggleTask={toggleTask} onDeleteTask={deleteTask}
@@ -449,7 +448,7 @@ export default function CalendarPage({ data }) {
           calcProgress={calcProgress}
         />
       )}
-
+ 
       {/* Date popup — 3 columns */}
       {selectedDate && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setSelectedDate(null)}>
@@ -471,7 +470,7 @@ export default function CalendarPage({ data }) {
               const evTasks = dayEvs.filter(ev => ev.cls === 'tsk');
               const evMeetings = dayEvs.filter(ev => ev.cls === 'mtg' || ev.cls === 'mtg_item' || ev.cls === 'outlook_mtg_yes' || ev.cls === 'outlook_mtg_maybe');
               const evEvents = dayEvs.filter(ev => ev.cls === 'evt' || ev.cls === 'proj' || ev.cls === 'outlook_evt');
-
+ 
               const renderEv = (ev, i) => {
                 const item = items.find(it => it.id === ev.id);
                 const fac = facilities.find(f => f.id === item?.facility_id);
@@ -524,7 +523,7 @@ export default function CalendarPage({ data }) {
           </div>
         </div>
       )}
-
+ 
       {/* Task/Meeting detail + edit popup */}
       {selectedTask && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setSelectedTask(null)}>
@@ -586,7 +585,7 @@ export default function CalendarPage({ data }) {
           </div>
         </div>
       )}
-
+ 
       {/* Outlook event detail popup */}
       {selectedOutlook && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setSelectedOutlook(null)}>
