@@ -86,7 +86,7 @@ const COUNT_BADGE = (active, n) => n > 0 ? (
   <span style={{ fontSize: '10px', background: active ? '#E8F8F0' : '#F0F0F0', color: active ? '#1D9E75' : '#888', borderRadius: '10px', padding: '1px 5px', marginLeft: '4px' }}>{n}</span>
 ) : null;
 
-export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, onClose, onUpdateItem, onDeleteItem, onAddStep, onToggleStep, onDeleteStep, onAddTask, onUpdateTask, onToggleTask, onDeleteTask, onAddNote, onDeleteNote, onGoIdeas, calcProgress }) {
+export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, facilityNotes = [], onClose, onUpdateItem, onDeleteItem, onAddStep, onToggleStep, onDeleteStep, onAddTask, onUpdateTask, onToggleTask, onDeleteTask, onAddNote, onDeleteNote, onGoIdeas, calcProgress }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [activeTask, setActiveTask] = useState(null);
   const [editingTask, setEditingTask] = useState(false);
@@ -116,6 +116,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
   const itemNotes = notes.filter(n => n.item_id === item.id);
   const respIdeas = ideas.filter(i => i.responsibility === item.responsibility);
   const projectIdeas = ideas.filter(i => i.item_id === item.id);
+  const linkedMemos = facilityNotes.filter(n => n.item_id === item.id);
   const today = new Date().toISOString().slice(0, 10);
   const ov = isOverdue(item.due_date) && !item.completed;
   const daysLeft = item.due_date ? daysUntil(item.due_date) : null;
@@ -375,6 +376,21 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                     <div key={idea.id} style={{ padding: '9px 12px', marginBottom: '6px', borderRadius: '10px', background: '#FFFDF0', border: '1px solid #FEE08B', cursor: 'pointer' }} onClick={() => setActiveTab('ideas')}>
                       <div style={{ fontSize: '12px', fontWeight: '600' }}>💡 {idea.title}</div>
                       {idea.body && <div style={{ fontSize: '11px', color: 'var(--text-2)', lineHeight: '1.5', marginTop: '2px' }}>{idea.body}</div>}
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* Linked Memos in Overview */}
+              {linkedMemos.length > 0 && (
+                <>
+                  <div style={{ height: '1px', background: 'var(--border)', margin: '14px 0' }} />
+                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: '8px' }}>📝 Memos</div>
+                  {linkedMemos.map(memo => (
+                    <div key={memo.id} style={{ padding: '9px 12px', marginBottom: '6px', borderRadius: '10px', background: '#FFF5E6', border: '1px solid #FFD88A' }}>
+                      <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: memo.body ? '3px' : 0 }}>{memo.title}</div>
+                      {memo.body && <div style={{ fontSize: '11px', color: 'var(--text-2)', lineHeight: '1.5' }}>{memo.body}</div>}
+                      <div style={{ fontSize: '10px', color: '#aaa', marginTop: '3px' }}>{memo.category}</div>
                     </div>
                   ))}
                 </>
