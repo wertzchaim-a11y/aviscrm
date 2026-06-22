@@ -5,7 +5,7 @@ const CATEGORIES = ['Marketing', 'Employee retention', 'Recruitment', 'Other'];
 const CAT_BADGE = { Marketing: 'badge-marketing', 'Employee retention': 'badge-retention', Recruitment: 'badge-recruitment', Other: 'badge-other' };
 
 export default function NotesPage({ data, onGoToPerson }) {
-  const { facilities } = data;
+  const { facilities, items } = data;
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [facFilter, setFacFilter] = useState('');
@@ -13,7 +13,7 @@ export default function NotesPage({ data, onGoToPerson }) {
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
-  const [form, setForm] = useState({ facility_id: '', category: 'Marketing', title: '', body: '' });
+  const [form, setForm] = useState({ facility_id: '', category: 'Marketing', title: '', body: '', item_id: '' });
   const [editForm, setEditForm] = useState({});
 
   useEffect(() => {
@@ -29,9 +29,10 @@ export default function NotesPage({ data, onGoToPerson }) {
 
   const handleSave = async () => {
     if (!form.title.trim() || !form.facility_id) return;
-    const { data: row } = await supabase.from('facility_notes').insert(form).select().single();
+    const saveData = { ...form, item_id: form.item_id || null };
+    const { data: row } = await supabase.from('facility_notes').insert(saveData).select().single();
     if (row) setNotes(prev => [row, ...prev]);
-    setForm({ facility_id: form.facility_id, category: form.category, title: '', body: '' });
+    setForm({ facility_id: form.facility_id, category: form.category, title: '', body: '', item_id: '' });
     setShowForm(false);
   };
 
@@ -122,6 +123,14 @@ export default function NotesPage({ data, onGoToPerson }) {
             </div>
             <div className="form-row">
               <div className="form-group full"><label>Title *</label><input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Note title" autoFocus /></div>
+              <div className="form-group full"><label>Link to project (optional)</label>
+                <select value={form.item_id} onChange={e => setForm(p => ({ ...p, item_id: e.target.value }))}>
+                  <option value="">— No project —</option>
+                  {items.filter(i => !i.completed && i.facility_id === form.facility_id).map(i => (
+                    <option key={i.id} value={i.id}>{i.name}</option>
+                  ))}
+                </select>
+              </div>
               <div className="form-group"><label>Facility *</label>
                 <select value={form.facility_id} onChange={e => setForm(p => ({ ...p, facility_id: e.target.value }))}>
                   <option value="">Select facility…</option>
