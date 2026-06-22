@@ -459,7 +459,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
 
       {openItemObj && (
         <ItemSheet item={openItemObj} facility={openFacility}
-          steps={steps} tasks={tasks} notes={notes} ideas={ideas}
+          steps={steps} tasks={tasks} notes={notes} ideas={ideas} facilityNotes={data.facilityNotes || []}
           onClose={() => setOpenItem(null)}
           onUpdateItem={updateItem} onDeleteItem={deleteItem} onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
           onAddTask={addTask} onUpdateTask={updateTask} onToggleTask={toggleTask} onDeleteTask={deleteTask}
