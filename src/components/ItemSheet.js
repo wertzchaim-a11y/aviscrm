@@ -86,6 +86,35 @@ const COUNT_BADGE = (active, n) => n > 0 ? (
   <span style={{ fontSize: '10px', background: active ? '#E8F8F0' : '#F0F0F0', color: active ? '#1D9E75' : '#888', borderRadius: '10px', padding: '1px 5px', marginLeft: '4px' }}>{n}</span>
 ) : null;
  
+// ── TASK FORM — standalone so it never remounts on ItemSheet re-renders ──
+function TaskForm({ taskForm, setTaskForm, itemSteps, handleAddTask, setShowTaskForm }) {
+  return (
+    <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius)', padding: '12px', marginBottom: '12px', border: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+        {[['task', '☑ Task'], ['meeting', '📅 Meeting']].map(([t, l]) => (
+          <button key={t} onClick={() => setTaskForm(p => ({ ...p, task_type: t }))}
+            style={{ flex: 1, padding: '5px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: taskForm.task_type === t ? 'var(--text)' : 'var(--surface)', color: taskForm.task_type === t ? '#fff' : 'var(--text-2)' }}>{l}</button>
+        ))}
+      </div>
+      <div className="form-row" style={{ marginBottom: '8px' }}>
+        <div className="form-group full"><label>{taskForm.task_type === 'meeting' ? 'Meeting name' : 'Task name'}</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} placeholder={taskForm.task_type === 'meeting' ? 'Meeting name…' : 'Task name…'} /></div>
+        <div className="form-group"><label>Date</label><input type="date" value={taskForm.due_date} onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} /></div>
+        {taskForm.task_type === 'meeting' && <div className="form-group"><label>Time</label><input type="time" value={taskForm.meeting_time} onChange={e => setTaskForm(p => ({ ...p, meeting_time: e.target.value }))} /></div>}
+        <div className="form-group"><label>Assigned to</label><input value={taskForm.assigned_to} onChange={e => setTaskForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
+        {taskForm.task_type !== 'meeting' && <div className="form-group"><label>Priority</label><select value={taskForm.priority} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value }))}><option>High</option><option>Medium</option><option>Low</option></select></div>}
+        <div className="form-group"><label>Step</label><select value={taskForm.step_id} onChange={e => setTaskForm(p => ({ ...p, step_id: e.target.value }))}><option value="">— none —</option>{itemSteps.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+        {taskForm.task_type === 'meeting' && <div className="form-group full"><label>Attendees</label><input value={taskForm.attendees} onChange={e => setTaskForm(p => ({ ...p, attendees: e.target.value }))} placeholder="Names separated by commas…" /></div>}
+        <div className="form-group full"><label>Notes</label><textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} /></div>
+      </div>
+      <RecurPicker value={taskForm.recur_type} days={taskForm.recur_days} onChange={v => setTaskForm(p => ({ ...p, recur_type: v }))} onDaysChange={v => setTaskForm(p => ({ ...p, recur_days: v }))} />
+      <div className="form-actions" style={{ marginTop: '10px' }}>
+        <button className="btn btn-sm" onClick={() => setShowTaskForm(false)}>Cancel</button>
+        <button className="btn btn-sm btn-primary" onClick={handleAddTask}>Save {taskForm.task_type === 'meeting' ? 'meeting' : 'task'}</button>
+      </div>
+    </div>
+  );
+}
+ 
 export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, facilityNotes = [], onClose, onUpdateItem, onDeleteItem, onAddStep, onToggleStep, onDeleteStep, onAddTask, onUpdateTask, onToggleTask, onDeleteTask, onAddNote, onDeleteNote, onGoIdeas, calcProgress }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [activeTask, setActiveTask] = useState(null);
@@ -200,33 +229,6 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
       </div>
     );
   }
- 
-  // ── TASK FORM ──
-  const TaskForm = () => (
-    <div style={{ background: 'var(--bg)', borderRadius: 'var(--radius)', padding: '12px', marginBottom: '12px', border: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
-        {[['task', '☑ Task'], ['meeting', '📅 Meeting']].map(([t, l]) => (
-          <button key={t} onClick={() => setTaskForm(p => ({ ...p, task_type: t }))}
-            style={{ flex: 1, padding: '5px', fontSize: '12px', fontWeight: '500', borderRadius: 'var(--radius)', border: '1px solid var(--border)', fontFamily: 'var(--font)', cursor: 'pointer', background: taskForm.task_type === t ? 'var(--text)' : 'var(--surface)', color: taskForm.task_type === t ? '#fff' : 'var(--text-2)' }}>{l}</button>
-        ))}
-      </div>
-      <div className="form-row" style={{ marginBottom: '8px' }}>
-        <div className="form-group full"><label>{taskForm.task_type === 'meeting' ? 'Meeting name' : 'Task name'}</label><input value={taskForm.name} onChange={e => setTaskForm(p => ({ ...p, name: e.target.value }))} placeholder={taskForm.task_type === 'meeting' ? 'Meeting name…' : 'Task name…'} /></div>
-        <div className="form-group"><label>Date</label><input type="date" value={taskForm.due_date} onChange={e => setTaskForm(p => ({ ...p, due_date: e.target.value }))} /></div>
-        {taskForm.task_type === 'meeting' && <div className="form-group"><label>Time</label><input type="time" value={taskForm.meeting_time} onChange={e => setTaskForm(p => ({ ...p, meeting_time: e.target.value }))} /></div>}
-        <div className="form-group"><label>Assigned to</label><input value={taskForm.assigned_to} onChange={e => setTaskForm(p => ({ ...p, assigned_to: e.target.value }))} /></div>
-        {taskForm.task_type !== 'meeting' && <div className="form-group"><label>Priority</label><select value={taskForm.priority} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value }))}><option>High</option><option>Medium</option><option>Low</option></select></div>}
-        <div className="form-group"><label>Step</label><select value={taskForm.step_id} onChange={e => setTaskForm(p => ({ ...p, step_id: e.target.value }))}><option value="">— none —</option>{itemSteps.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
-        {taskForm.task_type === 'meeting' && <div className="form-group full"><label>Attendees</label><input value={taskForm.attendees} onChange={e => setTaskForm(p => ({ ...p, attendees: e.target.value }))} placeholder="Names separated by commas…" /></div>}
-        <div className="form-group full"><label>Notes</label><textarea value={taskForm.notes} onChange={e => setTaskForm(p => ({ ...p, notes: e.target.value }))} /></div>
-      </div>
-      <RecurPicker value={taskForm.recur_type} days={taskForm.recur_days} onChange={v => setTaskForm(p => ({ ...p, recur_type: v }))} onDaysChange={v => setTaskForm(p => ({ ...p, recur_days: v }))} />
-      <div className="form-actions" style={{ marginTop: '10px' }}>
-        <button className="btn btn-sm" onClick={() => setShowTaskForm(false)}>Cancel</button>
-        <button className="btn btn-sm btn-primary" onClick={handleAddTask}>Save {taskForm.task_type === 'meeting' ? 'meeting' : 'task'}</button>
-      </div>
-    </div>
-  );
  
   // ── TASK CARD ──
   // ── MAIN SHEET ──
@@ -415,7 +417,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
                 <button className="btn btn-sm btn-primary" style={{ fontSize: '11px' }} onClick={() => setShowTaskForm(p => !p)}>+ Add task</button>
               </div>
-              {showTaskForm && <TaskForm />}
+              {showTaskForm && <TaskForm taskForm={taskForm} setTaskForm={setTaskForm} itemSteps={itemSteps} handleAddTask={handleAddTask} setShowTaskForm={setShowTaskForm} />}
               {itemTasks.length === 0 && !showTaskForm && <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-3)', fontSize: '13px' }}>No tasks yet.</div>}
               {itemTasks.map(t => <TaskCard key={t.id} t={t} itemSteps={itemSteps} setActiveTask={setActiveTask} onToggleTask={handleToggleTask} />)}
             </div>
