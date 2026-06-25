@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-
+ 
 export function useData() {
   const [facilities, setFacilities] = useState([]);
   const [items, setItems] = useState([]);
@@ -11,7 +11,7 @@ export function useData() {
   const [facilityNotes, setFacilityNotes] = useState([]);
   const [outlookDbEvents, setOutlookDbEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-
+ 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     const [f, i, s, t, n, id, ol, fn] = await Promise.all([
@@ -34,16 +34,16 @@ export function useData() {
     setFacilityNotes(fn.data || []);
     setLoading(false);
   }, []);
-
+ 
   useEffect(() => { fetchAll(); }, [fetchAll]);
-
+ 
   // FACILITIES
   const updateFacility = async (id, data) => {
     const { data: row, error } = await supabase.from('facilities').update(data).eq('id', id).select().single();
     if (error) console.error('updateFacility error:', error);
     if (row) setFacilities(prev => prev.map(f => f.id === id ? row : f));
   };
-
+ 
   // ITEMS
   const addItem = async (data) => {
     const cleanData = {
@@ -89,7 +89,7 @@ export function useData() {
     setNotes(prev => prev.filter(n => n.item_id !== id));
     setIdeas(prev => prev.map(i => i.item_id === id ? { ...i, item_id: null } : i));
   };
-
+ 
   // STEPS
   const addStep = async (data) => {
     const { data: row, error } = await supabase.from('steps').insert({ item_id: data.item_id, name: data.name, done: false }).select().single();
@@ -109,7 +109,7 @@ export function useData() {
     setSteps(prev => prev.filter(s => s.id !== id));
     setTasks(prev => prev.map(t => t.step_id === id ? { ...t, step_id: null } : t));
   };
-
+ 
   // TASKS
   const addTask = async (data) => {
     const cleanData = {
@@ -163,13 +163,14 @@ export function useData() {
     const task = tasks.find(t => t.id === id);
     if (!task) return;
     const nowDone = !task.done;
+    const completedAt = nowDone ? new Date().toISOString() : null;
     // Optimistic update first for instant UI response
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, done: nowDone } : t));
-    const { data: row, error } = await supabase.from('tasks').update({ done: nowDone }).eq('id', id).select().single();
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, done: nowDone, completed_at: completedAt } : t));
+    const { data: row, error } = await supabase.from('tasks').update({ done: nowDone, completed_at: completedAt }).eq('id', id).select().single();
     if (error) {
       console.error('toggleTask error:', error);
       // Revert optimistic update on failure
-      setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !nowDone } : t));
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, done: !nowDone, completed_at: task.completed_at } : t));
       return;
     }
     if (row) setTasks(prev => prev.map(t => t.id === id ? row : t));
@@ -184,7 +185,7 @@ export function useData() {
     if (error) { console.error('deleteTask error:', error); return; }
     setTasks(prev => prev.filter(t => t.id !== id));
   };
-
+ 
   // NOTES
   const addNote = async (data) => {
     const { data: row, error } = await supabase.from('notes').insert(data).select().single();
@@ -196,7 +197,7 @@ export function useData() {
     if (error) { console.error('deleteNote error:', error); return; }
     setNotes(prev => prev.filter(n => n.id !== id));
   };
-
+ 
   // IDEAS
   const addIdea = async (data) => {
     const { data: row, error } = await supabase.from('ideas').insert(data).select().single();
@@ -213,7 +214,7 @@ export function useData() {
     if (error) { console.error('deleteIdea error:', error); return; }
     setIdeas(prev => prev.filter(i => i.id !== id));
   };
-
+ 
   // PROGRESS CALC
   const calcProgress = useCallback((item) => {
     if (item.manual_progress) return item.progress;
@@ -223,12 +224,12 @@ export function useData() {
     if (itemTasks.length > 0) return Math.round(itemTasks.filter(t => t.done).length / itemTasks.length * 100);
     return 0;
   }, [steps, tasks]);
-
+ 
   const refreshOutlookEvents = async () => {
     const { data: ol } = await supabase.from('outlook_events').select('*').order('start_date');
     setOutlookDbEvents(ol || []);
   };
-
+ 
   return {
     facilities, items, steps, tasks, notes, ideas, facilityNotes, outlookDbEvents, loading, fetchAll,
     updateFacility,
@@ -240,3 +241,4 @@ export function useData() {
     calcProgress, refreshOutlookEvents,
   };
 }
+ 
