@@ -40,7 +40,7 @@ function RecurPicker({ value, days, onChange, onDaysChange }) {
   );
 }
 
-export default function PipelinePage({
+export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertIdeaDone }) {
   const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, reorderItems, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, updateIdea, deleteIdea, calcProgress, updateFacility } = data;
 
   const [openItem, setOpenItem] = useState(null);
