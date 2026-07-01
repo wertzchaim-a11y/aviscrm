@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
 import ItemSheet from '../components/ItemSheet';
- 
+import { supabase } from '../lib/supabase';
+
 const RESP_COLS = ['Marketing', 'Employee retention', 'Recruitment', 'Other'];
 const RESP_BADGE = { Marketing: 'badge-marketing', 'Employee retention': 'badge-retention', Recruitment: 'badge-recruitment', Other: 'badge-other' };
- 
+
 function fmt(d) { if (!d) return ''; const [y, m, day] = d.split('-'); return `${parseInt(m)}/${parseInt(day)}`; }
 function isOverdue(d) { return d && d < new Date().toISOString().slice(0, 10); }
- 
+
 const EMPTY_FORM = { name: '', type: 'project', facility_id: '', responsibility: 'Marketing', due_date: '', assigned_to: '' };
- 
+
 const RECUR_OPTS = ['never', 'daily', 'weekly', 'biweekly', 'monthly'];
 const RECUR_LABEL = { never: 'Never', daily: 'Daily', weekly: 'Weekly', biweekly: 'Bi-weekly', monthly: 'Monthly' };
 const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
- 
+
 function RecurPicker({ value, days, onChange, onDaysChange }) {
   return (
     <div style={{ marginTop: '8px' }}>
@@ -38,10 +39,10 @@ function RecurPicker({ value, days, onChange, onDaysChange }) {
     </div>
   );
 }
- 
-export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertIdeaDone }) {
+
+export default function PipelinePage({
   const { facilities, items, steps, tasks, notes, ideas, addItem, updateItem, deleteItem, reorderItems, addStep, toggleStep, deleteStep, addTask, updateTask, toggleTask, deleteTask, addNote, deleteNote, addIdea, updateIdea, deleteIdea, calcProgress, updateFacility } = data;
- 
+
   const [openItem, setOpenItem] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -62,15 +63,20 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
   const [openIdeaForm, setOpenIdeaForm] = useState({});
   const [summary, setSummary] = useState({});
   const [editingSummary, setEditingSummary] = useState(null);
- 
+
+  // Load per-user summaries from user_summaries table
   React.useEffect(() => {
-    if (facilities.length) {
-      const s = {};
-      facilities.forEach(f => { if (f.summary) s[f.id] = f.summary; });
-      setSummary(s);
-    }
+    if (!facilities.length) return;
+    supabase.from('user_summaries').select('facility_id, summary')
+      .then(({ data }) => {
+        if (data) {
+          const s = {};
+          data.forEach(row => { s[row.facility_id] = row.summary; });
+          setSummary(s);
+        }
+      });
   }, [facilities]);
- 
+
   // Auto-open add form when converting an idea to a project
   React.useEffect(() => {
     if (convertIdea) {
@@ -87,12 +93,15 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
       onConvertIdeaDone && onConvertIdeaDone();
     }
   }, [convertIdea]);
- 
+
   const saveSummary = async (facId) => {
-    await updateFacility(facId, { summary: summary[facId] || '' });
+    await supabase.from('user_summaries').upsert(
+      { facility_id: facId, summary: summary[facId] || '' },
+      { onConflict: 'user_id,facility_id' }
+    );
     setEditingSummary(null);
   };
- 
+
   const resetForm = () => {
     setAddForm(EMPTY_FORM);
     setQuickSteps([]); setQuickTasks([]); setQuickNotes([]); setQuickIdeas([]);
@@ -101,7 +110,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
     setActiveTab('details');
     setShowAddForm(false);
   };
- 
+
   const handleAddItem = async () => {
     if (!addForm.name.trim() || !addForm.facility_id) return;
     if (isSaving) return;
@@ -126,17 +135,17 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
       setIsSaving(false);
     }
   };
- 
+
   const handleAddIdea = async (resp) => {
     if (!newIdeaForm.title.trim()) return;
     await addIdea({ title: newIdeaForm.title, responsibility: resp, body: newIdeaForm.body });
     setNewIdeaForm({ title: '', body: '' });
     setNewIdeaCol(null);
   };
- 
+
   const openItemObj = items.find(i => i.id === openItem);
   const openFacility = facilities.find(f => f.id === openItemObj?.facility_id);
- 
+
   const tabStyle = (t) => ({
     fontSize: '12px', padding: '5px 12px', borderRadius: '20px', fontFamily: 'var(--font)',
     fontWeight: activeTab === t ? '600' : '400', cursor: 'pointer',
@@ -144,18 +153,18 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
     color: activeTab === t ? '#fff' : 'var(--text-2)',
     border: activeTab !== t ? '1px solid var(--border)' : 'none',
   });
- 
+
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '0 0 80px' }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg)', borderBottom: '1px solid var(--border)', padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 style={{ fontSize: '18px', fontWeight: '600' }}>Pipeline</h1>
         <button className="btn btn-primary btn-sm" onClick={() => setShowAddForm(true)}>+ Add item</button>
       </div>
- 
+
       {facilities.map(fac => {
         const isSpecial = fac.name === 'Corp' || fac.name === 'Personal';
         const facIcon = fac.name === 'Corp' ? '🏢 ' : fac.name === 'Personal' ? '👤 ' : '';
- 
+
         if (isSpecial) {
           const allItems = items.filter(i => i.facility_id === fac.id && !i.completed);
           const sortedItems = [...allItems].sort((a, b) => {
@@ -212,7 +221,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
             </div>
           );
         }
- 
+
         return (
         <div key={fac.id} style={{ padding: '14px 16px 0' }}>
           {/* Facility header */}
@@ -221,7 +230,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
             <span style={{ fontWeight: '600', fontSize: '15px', flex: 1 }}>{fac.name}</span>
             <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{items.filter(i => i.facility_id === fac.id).length} items</span>
           </div>
- 
+
           {/* Summary */}
           <div style={{ marginBottom: '12px', background: '#FFFEF0', border: '1px solid #E8E4A0', borderRadius: 'var(--radius-lg)', padding: '10px 12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: editingSummary === fac.id ? '8px' : (summary[fac.id] ? '4px' : '0') }}>
@@ -251,7 +260,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
               <div style={{ fontSize: '11px', color: '#B0A800', fontStyle: 'italic' }}>No summary yet. Tap "+ Add" to write one.</div>
             )}
           </div>
- 
+
           {/* 5-column grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) 200px', gap: '10px', marginBottom: '20px', overflowX: 'auto' }}>
             {RESP_COLS.map(resp => {
@@ -317,7 +326,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                 </div>
               );
             })}
- 
+
             {/* Ideas column */}
             <div style={{ background: '#FFFEF0', border: '1px solid #E8E4A0', borderRadius: 'var(--radius-lg)', padding: '10px', minWidth: '160px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -351,7 +360,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
         </div>
         );
       })}
- 
+
       {/* ADD ITEM MODAL */}
       {showAddForm && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && resetForm()}>
@@ -370,7 +379,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                 </button>
               ))}
             </div>
- 
+
             {activeTab === 'details' && (
               <div className="form-row">
                 <div className="form-group full"><label>Name *</label><input value={addForm.name} onChange={e => setAddForm(p => ({ ...p, name: e.target.value }))} autoFocus placeholder="Project or event name" /></div>
@@ -394,7 +403,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                 <div className="form-group"><label>Assigned to (optional)</label><input value={addForm.assigned_to} onChange={e => setAddForm(p => ({ ...p, assigned_to: e.target.value }))} placeholder="Name" /></div>
               </div>
             )}
- 
+
             {activeTab === 'steps' && (
               <div>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
@@ -412,7 +421,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                 }
               </div>
             )}
- 
+
             {activeTab === 'tasks' && (
               <div>
                 {/* Task/Meeting toggle */}
@@ -450,7 +459,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                 }
               </div>
             )}
- 
+
             {activeTab === 'notes' && (
               <div>
                 <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} placeholder="Write a note…" style={{ minHeight: '80px', width: '100%' }} autoFocus />
@@ -466,7 +475,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                 }
               </div>
             )}
- 
+
             {activeTab === 'ideas' && (
               <div>
                 <div className="form-row" style={{ marginBottom: '10px' }}>
@@ -485,7 +494,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
                 }
               </div>
             )}
- 
+
             <div className="form-actions" style={{ marginTop: '16px' }}>
               <button className="btn btn-sm" onClick={resetForm}>Cancel</button>
               <button className="btn btn-sm btn-primary" onClick={handleAddItem} disabled={isSaving} style={{ opacity: isSaving ? 0.6 : 1 }}>{isSaving ? 'Saving…' : 'Save project'}</button>
@@ -493,7 +502,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
           </div>
         </div>
       )}
- 
+
       {/* ADD IDEA SHEET */}
       {newIdeaCol && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setNewIdeaCol(null)}>
@@ -518,7 +527,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
           </div>
         </div>
       )}
- 
+
       {openItemObj && (
         <ItemSheet item={openItemObj} facility={openFacility}
           steps={steps} tasks={tasks} notes={notes} ideas={ideas} facilityNotes={data.facilityNotes || []}
@@ -530,7 +539,7 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
           calcProgress={calcProgress}
         />
       )}
- 
+
       {/* Idea detail popup */}
       {openIdea && (
         <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setOpenIdea(null)}>
