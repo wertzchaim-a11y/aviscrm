@@ -1,32 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase';
-
+ 
 export default function LoginPage() {
   const { signIn } = useAuth();
-  const [mode, setMode] = useState('login'); // 'login' | 'forgot' | 'setPassword'
+  const [mode, setMode] = useState(() => {
+    const params = new URLSearchParams(window.location.hash.substring(1));
+    const type = params.get('type');
+    return (type === 'invite' || type === 'recovery') ? 'setPassword' : 'login';
+  });
+ 
+  const [tokenType] = useState(() => {
+    const params = new URLSearchParams(window.location.hash.substring(1));
+    return params.get('type') || '';
+  });
+ 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [tokenType, setTokenType] = useState('');
-
-  // Detect invite or password reset token in URL hash
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash) {
-      const params = new URLSearchParams(hash.substring(1));
-      const type = params.get('type');
-      if (type === 'invite' || type === 'recovery') {
-        setTokenType(type);
-        setMode('setPassword');
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
-  }, []);
-
+ 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -34,7 +29,7 @@ export default function LoginPage() {
     const { error } = await signIn(email, password);
     if (error) { setError('Incorrect email or password.'); setLoading(false); }
   };
-
+ 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -46,7 +41,7 @@ export default function LoginPage() {
     else { setMessage('Check your email for a password reset link!'); }
     setLoading(false);
   };
-
+ 
   const handleSetPassword = async (e) => {
     e.preventDefault();
     if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
@@ -57,7 +52,7 @@ export default function LoginPage() {
     if (error) { setError(error.message); setLoading(false); }
     // On success, useAuth's onAuthStateChange handles login automatically
   };
-
+ 
   const logo = (
     <div style={{ textAlign: 'center', marginBottom: '32px' }}>
       <div style={{ width: '48px', height: '48px', background: 'var(--green)', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', fontSize: '24px', color: '#fff', fontWeight: '600' }}>A</div>
@@ -65,7 +60,7 @@ export default function LoginPage() {
       <p style={{ color: 'var(--text-2)', fontSize: '14px' }}>Operations Manager</p>
     </div>
   );
-
+ 
   const wrap = (children) => (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: '24px' }}>
       <div style={{ width: '100%', maxWidth: '360px' }}>
@@ -76,7 +71,7 @@ export default function LoginPage() {
       </div>
     </div>
   );
-
+ 
   // ── Set password (invite or forgot password reset) ──
   if (mode === 'setPassword') return wrap(
     <>
@@ -99,7 +94,7 @@ export default function LoginPage() {
       </form>
     </>
   );
-
+ 
   // ── Forgot password ──
   if (mode === 'forgot') return wrap(
     <>
@@ -123,7 +118,7 @@ export default function LoginPage() {
       </button>
     </>
   );
-
+ 
   // ── Login ──
   return wrap(
     <>
@@ -148,3 +143,4 @@ export default function LoginPage() {
     </>
   );
 }
+ 
