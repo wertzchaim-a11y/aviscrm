@@ -48,7 +48,6 @@ export default function TasksPage({ data }) {
   const [selectedTask, setSelectedTask] = useState(null); // read-only detail view
   const [openItem, setOpenItem] = useState(null); // linked project ItemSheet
   const [editForm, setEditForm] = useState({});
-  const [openItem, setOpenItem] = useState(null);
   const [showAddTask, setShowAddTask] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [taskForm, setTaskForm] = useState({ name: '', due_date: '', assigned_to: '', priority: 'Medium', notes: '', item_id: '', task_type: 'task', meeting_time: '', attendees: '', recur_type: 'never', recur_days: '' });
@@ -347,24 +346,6 @@ export default function TasksPage({ data }) {
           </div>
         </div>
       )}
-
-      {/* Linked project ItemSheet — opens from task detail, returns to task detail on close */}
-      {openItem && (() => {
-        const openItemObj = items.find(i => i.id === openItem);
-        const openFacility = facilities.find(f => f.id === openItemObj?.facility_id);
-        return openItemObj ? (
-          <ItemSheet item={openItemObj} facility={openFacility}
-            steps={steps} tasks={tasks} notes={notes} ideas={ideas} facilityNotes={data.facilityNotes || []}
-            onClose={() => setOpenItem(null)}
-            onUpdateItem={updateItem} onDeleteItem={deleteItem}
-            onAddStep={addStep} onToggleStep={toggleStep} onDeleteStep={deleteStep}
-            onAddTask={addTask} onUpdateTask={updateTask} onToggleTask={toggleTask} onDeleteTask={deleteTask}
-            onAddNote={addNote} onDeleteNote={deleteNote}
-            onGoIdeas={() => setOpenItem(null)}
-            calcProgress={calcProgress}
-          />
-        ) : null;
-      })()}
 
       {/* Edit task modal */}
       {editingTask && (
