@@ -161,7 +161,14 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
         <button className="btn btn-primary btn-sm" onClick={() => setShowAddForm(true)}>+ Add item</button>
       </div>
 
-      {facilities.map(fac => {
+      {[...facilities].sort((a, b) => {
+        const SPECIAL = ['Corp', 'Personal'];
+        const ai = SPECIAL.indexOf(a.name), bi = SPECIAL.indexOf(b.name);
+        if (ai !== -1 && bi !== -1) return ai - bi;
+        if (ai !== -1) return -1;
+        if (bi !== -1) return 1;
+        return (a.position || 0) - (b.position || 0);
+      }).map(fac => {
         const isSpecial = fac.name === 'Corp' || fac.name === 'Personal';
         const facIcon = fac.name === 'Corp' ? '🏢 ' : fac.name === 'Personal' ? '👤 ' : '';
 
@@ -328,29 +335,31 @@ export default function PipelinePage({ data, onGoIdeas, convertIdea, onConvertId
             })}
 
             {/* Ideas column */}
-            <div style={{ background: '#FFFEF0', border: '1px solid #E8E4A0', borderRadius: 'var(--radius-lg)', padding: '10px', minWidth: '160px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div style={{ background: '#FFFEF0', border: '1px solid #E8E4A0', borderRadius: 'var(--radius-lg)', padding: '10px', minWidth: '160px', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexShrink: 0 }}>
                 <span style={{ fontSize: '11px', fontWeight: '600', color: '#7A6E00' }}>💡 Ideas</span>
                 <button onClick={() => setNewIdeaCol({ resp: 'Marketing' })}
                   style={{ fontSize: '16px', lineHeight: 1, background: 'transparent', border: 'none', color: '#7A6E00', cursor: 'pointer', padding: '0 2px' }}>+</button>
               </div>
-              {RESP_COLS.map(resp => {
-                const respIdeas = ideas.filter(i => i.responsibility === resp);
-                if (respIdeas.length === 0) return null;
-                return (
-                  <div key={resp} style={{ marginBottom: '8px' }}>
-                    <div style={{ fontSize: '10px', fontWeight: '600', color: '#7A6E00', marginBottom: '4px', opacity: 0.7 }}>{resp}</div>
-                    {respIdeas.map(idea => (
-                      <div key={idea.id} style={{ background: '#FFFFF5', border: '1px solid #E8E4A0', borderRadius: 'var(--radius)', padding: '7px 8px', marginBottom: '5px', cursor: 'pointer' }}
-                        onClick={() => { setOpenIdea(idea); setEditingOpenIdea(false); }}>
-                        <div style={{ fontSize: '11px', fontWeight: '600', lineHeight: '1.3', marginBottom: '2px' }}>{idea.title}</div>
-                        {idea.body && <div style={{ fontSize: '10px', color: '#7A6E00', lineHeight: '1.4' }}>{idea.body.length > 60 ? idea.body.slice(0, 60) + '…' : idea.body}</div>}
-                      </div>
-                    ))}
-                  </div>
-                );
-              })}
-              {ideas.length === 0 && <div style={{ fontSize: '11px', color: '#7A6E00', opacity: 0.6, padding: '4px 0' }}>No ideas yet</div>}
+              <div style={{ overflowY: 'auto', maxHeight: '400px', flex: 1 }}>
+                {RESP_COLS.map(resp => {
+                  const respIdeas = ideas.filter(i => i.responsibility === resp);
+                  if (respIdeas.length === 0) return null;
+                  return (
+                    <div key={resp} style={{ marginBottom: '8px' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '600', color: '#7A6E00', marginBottom: '4px', opacity: 0.7 }}>{resp}</div>
+                      {respIdeas.map(idea => (
+                        <div key={idea.id} style={{ background: '#FFFFF5', border: '1px solid #E8E4A0', borderRadius: 'var(--radius)', padding: '7px 8px', marginBottom: '5px', cursor: 'pointer' }}
+                          onClick={() => { setOpenIdea(idea); setEditingOpenIdea(false); }}>
+                          <div style={{ fontSize: '11px', fontWeight: '600', lineHeight: '1.3', marginBottom: '2px' }}>{idea.title}</div>
+                          {idea.body && <div style={{ fontSize: '10px', color: '#7A6E00', lineHeight: '1.4' }}>{idea.body.length > 60 ? idea.body.slice(0, 60) + '…' : idea.body}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+                {ideas.length === 0 && <div style={{ fontSize: '11px', color: '#7A6E00', opacity: 0.6, padding: '4px 0' }}>No ideas yet</div>}
+              </div>
               <button onClick={() => setNewIdeaCol({ resp: 'Marketing' })}
                 style={{ width: '100%', fontSize: '11px', padding: '5px', borderRadius: 'var(--radius)', border: '1px dashed #C8C070', background: 'transparent', color: '#7A6E00', cursor: 'pointer', fontFamily: 'var(--font)', marginTop: '4px' }}>
                 + Add idea
