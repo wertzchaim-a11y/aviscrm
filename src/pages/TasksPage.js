@@ -314,7 +314,7 @@ export default function TasksPage({ data }) {
               {selectedTask.recur_type && selectedTask.recur_type !== 'never' && <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '20px', background: '#F0FBF7', color: '#1D9E75', fontWeight: '600', border: '1px solid #C8EDD8' }}>🔁</span>}
               <span className="badge" style={{ background: selectedTask.done ? '#E8F8F0' : 'var(--gray-light)', color: selectedTask.done ? '#1D9E75' : 'var(--gray)' }}>{selectedTask.done ? '✓ Done' : 'Open'}</span>
             </div>
-            {selectedTask.notes && <div style={{ fontSize: '13px', color: 'var(--text-2)', background: 'var(--bg)', padding: '10px 12px', borderRadius: 'var(--radius)', borderLeft: '3px solid var(--green)', marginBottom: '12px', lineHeight: '1.6' }}>{selectedTask.notes}</div>}
+            {selectedTask.notes && <div style={{ fontSize: '13px', color: 'var(--text-2)', background: 'var(--bg)', padding: '10px 12px', borderRadius: 'var(--radius)', borderLeft: '3px solid var(--green)', marginBottom: '12px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{selectedTask.notes}</div>}
             {/* Linked project */}
             {selectedTask.item_id && (() => {
               const linkedItem = items.find(i => i.id === selectedTask.item_id);
