@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
- 
+
 const PRI_BADGE = { High: 'badge-high', Medium: 'badge-medium', Low: 'badge-low' };
 function fmt(d) { if (!d) return ''; const [y, m, day] = d.split('-'); return `${parseInt(m)}/${parseInt(day)}/${y}`; }
 function isOverdue(d) { if (!d) return false; return d < new Date().toISOString().slice(0, 10); }
 function daysUntil(d) { if (!d) return null; const diff = Math.ceil((new Date(d + 'T12:00:00') - new Date()) / 86400000); return diff; }
- 
+
 const RECUR_OPTS = ['never', 'daily', 'weekly', 'biweekly', 'monthly'];
 const RECUR_LABEL = { never: 'Never', daily: 'Daily', weekly: 'Weekly', biweekly: 'Bi-weekly', monthly: 'Monthly' };
 const DOW = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
- 
+
 function TaskCard({ t, itemSteps, setActiveTask, onToggleTask }) {
   const linkedStep = itemSteps.find(s => s.id === t.step_id);
   const isMtg = t.task_type === 'meeting';
@@ -36,7 +36,7 @@ function TaskCard({ t, itemSteps, setActiveTask, onToggleTask }) {
     </div>
   );
 }
- 
+
 function RecurPicker({ value, days, onChange, onDaysChange }) {
   return (
     <div style={{ marginTop: '8px' }}>
@@ -74,18 +74,18 @@ function RecurPicker({ value, days, onChange, onDaysChange }) {
     </div>
   );
 }
- 
+
 const TAB_STYLE = (active) => ({
   padding: '10px 14px', fontSize: '12px', fontWeight: active ? '600' : '500',
   color: active ? '#1D9E75' : '#aaa', cursor: 'pointer', whiteSpace: 'nowrap',
   background: 'transparent', border: 'none', borderBottom: active ? '2px solid #1D9E75' : '2px solid transparent',
   fontFamily: 'var(--font)',
 });
- 
+
 const COUNT_BADGE = (active, n) => n > 0 ? (
   <span style={{ fontSize: '10px', background: active ? '#E8F8F0' : '#F0F0F0', color: active ? '#1D9E75' : '#888', borderRadius: '10px', padding: '1px 5px', marginLeft: '4px' }}>{n}</span>
 ) : null;
- 
+
 // ── TASK FORM — standalone so it never remounts on ItemSheet re-renders ──
 function TaskForm({ taskForm, setTaskForm, itemSteps, handleAddTask, setShowTaskForm }) {
   return (
@@ -114,7 +114,7 @@ function TaskForm({ taskForm, setTaskForm, itemSteps, handleAddTask, setShowTask
     </div>
   );
 }
- 
+
 export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, facilityNotes = [], onClose, onUpdateItem, onDeleteItem, onAddStep, onToggleStep, onDeleteStep, onAddTask, onUpdateTask, onToggleTask, onDeleteTask, onAddNote, onDeleteNote, onGoIdeas, calcProgress }) {
   const [activeTab, setActiveTab] = useState('overview');
   const [activeTask, setActiveTask] = useState(null);
@@ -125,11 +125,12 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [newStep, setNewStep] = useState('');
   const [newNote, setNewNote] = useState('');
+  const [editingNote, setEditingNote] = useState(null); // { id, text }
   const [taskForm, setTaskForm] = useState({ name: '', due_date: '', meeting_time: '', assigned_to: '', priority: 'Medium', step_id: '', notes: '', task_type: 'task', attendees: '', recur_type: 'never', recur_days: '' });
   const [editForm, setEditForm] = useState({});
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showDoneTasks, setShowDoneTasks] = useState(false);
- 
+
   const RESP_COLS = ['Marketing', 'Employee retention', 'Recruitment', 'Other'];
   const progress = calcProgress(item);
   const itemSteps = steps.filter(s => s.item_id === item.id);
@@ -150,7 +151,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
   const ov = isOverdue(item.due_date) && !item.completed;
   const daysLeft = item.due_date ? daysUntil(item.due_date) : null;
   const dueSoon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7 && !item.completed;
- 
+
   const startEditItem = () => { setItemEditForm({ name: item.name, type: item.type, facility_id: item.facility_id, responsibility: item.responsibility, due_date: item.due_date || '', assigned_to: item.assigned_to || '' }); setEditingItem(true); };
   const saveEditItem = async () => { if (!itemEditForm.name.trim()) return; await onUpdateItem(item.id, { name: itemEditForm.name.trim(), type: itemEditForm.type, facility_id: itemEditForm.facility_id, responsibility: itemEditForm.responsibility, due_date: itemEditForm.due_date || null, assigned_to: itemEditForm.assigned_to || null }); setEditingItem(false); };
   const handleAddStep = async () => { if (!newStep.trim()) return; await onAddStep({ item_id: item.id, name: newStep.trim() }); setNewStep(''); setShowStepForm(false); };
@@ -161,6 +162,12 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
     setShowTaskForm(false);
   };
   const handleAddNote = async () => { if (!newNote.trim()) return; await onAddNote({ item_id: item.id, text: newNote.trim() }); setNewNote(''); };
+  const handleUpdateNote = async () => {
+    if (!editingNote || !editingNote.text.trim()) return;
+    const { supabase } = await import('../lib/supabase');
+    await supabase.from('notes').update({ text: editingNote.text.trim() }).eq('id', editingNote.id);
+    setEditingNote(null);
+  };
   const handleToggleTask = async (taskId) => {
     await onToggleTask(taskId);
   };
@@ -170,7 +177,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
     setEditingTask(false);
   };
   const handleDeleteItem = async () => { await onDeleteItem(item.id); onClose(); };
- 
+
   // ── TASK DETAIL ──
   if (activeTask) {
     const step = itemSteps.find(s => s.id === activeTask.step_id);
@@ -229,14 +236,14 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
       </div>
     );
   }
- 
+
   // ── TASK CARD ──
   // ── MAIN SHEET ──
   return (
     <div className="overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="sheet">
         <div className="sheet-handle" />
- 
+
         {/* Header */}
         {editingItem ? (
           <div style={{ padding: '14px 18px 12px', borderBottom: '1px solid var(--border)' }}>
@@ -281,7 +288,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
             </div>
           </div>
         )}
- 
+
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 8px', overflowX: 'auto', background: 'var(--surface)' }}>
           {[
@@ -297,9 +304,9 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
             </button>
           ))}
         </div>
- 
+
         <div style={{ flex: 1, overflow: 'auto', padding: '14px 18px 80px' }}>
- 
+
           {/* ── OVERVIEW TAB ── */}
           {activeTab === 'overview' && (
             <div>
@@ -330,7 +337,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                   </div>
                 </div>
               )}
- 
+
               {/* Open tasks */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ fontSize: '11px', fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: '.5px' }}>Open tasks</span>
@@ -343,15 +350,15 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                 </div>
               )}
               {showDoneTasks && doneTasks.map(t => <TaskCard key={t.id} t={t} itemSteps={itemSteps} setActiveTask={setActiveTask} onToggleTask={handleToggleTask} />)}
- 
+
               <div style={{ height: '1px', background: 'var(--border)', margin: '14px 0' }} />
- 
+
               {/* Notes */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ fontSize: '11px', fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: '.5px' }}>Notes & updates</span>
               </div>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                <input value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Add a note or update…" onKeyDown={e => e.key === 'Enter' && handleAddNote()} style={{ flex: 1 }} />
+                <textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Add a note or update…" style={{ flex: 1, minHeight: '60px', resize: 'vertical', fontFamily: 'var(--font)', fontSize: '13px', padding: '8px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }} />
                 <button className="btn btn-sm btn-primary" onClick={handleAddNote} style={{ whiteSpace: 'nowrap' }}>Post</button>
               </div>
               {itemNotes.length === 0 && <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--text-3)', fontSize: '12px' }}>No notes yet.</div>}
@@ -359,16 +366,19 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                 <div key={n.id} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
                   <div style={{ width: '26px', height: '26px', borderRadius: '50%', background: 'var(--green-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '700', color: 'var(--green-text)', flexShrink: 0 }}>C</div>
                   <div style={{ flex: 1, background: '#F0FBF7', border: '1px solid #C8EDD8', borderRadius: '0 10px 10px 10px', padding: '8px 12px' }}>
-                    <div style={{ fontSize: '12px', color: '#2D7A5A', lineHeight: '1.5' }}>{n.text}</div>
+                    <div style={{ fontSize: '12px', color: '#2D7A5A', lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>{n.text}</div>
                     <div style={{ fontSize: '10px', color: '#aaa', marginTop: '3px', display: 'flex', justifyContent: 'space-between' }}>
                       <span>{n.created_at ? new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}</span>
-                      <button style={{ fontSize: '10px', color: 'var(--text-3)', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }} onClick={() => onDeleteNote(n.id)}>Delete</button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button style={{ fontSize: '10px', color: 'var(--green)', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }} onClick={() => setEditingNote({ id: n.id, text: n.text })}>Edit</button>
+                        <button style={{ fontSize: '10px', color: 'var(--text-3)', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }} onClick={() => onDeleteNote(n.id)}>Delete</button>
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
               {itemNotes.length > 3 && <div onClick={() => setActiveTab('notes')} style={{ textAlign: 'center', fontSize: '11px', color: 'var(--green)', cursor: 'pointer', padding: '4px 0', fontWeight: '600' }}>View all {itemNotes.length} notes →</div>}
- 
+
               {/* Project Ideas in Overview */}
               {projectIdeas.length > 0 && (
                 <>
@@ -385,7 +395,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                   ))}
                 </>
               )}
- 
+
               {/* Linked Memos in Overview */}
               {linkedMemos.length > 0 && (
                 <>
@@ -400,7 +410,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                   ))}
                 </>
               )}
- 
+
               <div style={{ display: 'flex', gap: '8px', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
                 <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: item.completed ? 'var(--gray)' : 'var(--green)' }} onClick={() => onUpdateItem(item.id, { completed: !item.completed, completed_at: !item.completed ? new Date().toISOString() : null })}>
                   {item.completed ? '↩ Reopen project' : '✓ Mark complete'}
@@ -410,7 +420,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
               </div>
             </div>
           )}
- 
+
           {/* ── TASKS TAB ── */}
           {activeTab === 'tasks' && (
             <div>
@@ -422,7 +432,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
               {itemTasks.map(t => <TaskCard key={t.id} t={t} itemSteps={itemSteps} setActiveTask={setActiveTask} onToggleTask={handleToggleTask} />)}
             </div>
           )}
- 
+
           {/* ── STEPS TAB ── */}
           {activeTab === 'steps' && (
             <div>
@@ -451,12 +461,12 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
               })}
             </div>
           )}
- 
+
           {/* ── NOTES TAB ── */}
           {activeTab === 'notes' && (
             <div>
               <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-                <input value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Add a note or update…" onKeyDown={e => e.key === 'Enter' && handleAddNote()} style={{ flex: 1 }} />
+                <textarea value={newNote} onChange={e => setNewNote(e.target.value)} placeholder="Add a note or update…" style={{ flex: 1, minHeight: '60px', resize: 'vertical', fontFamily: 'var(--font)', fontSize: '13px', padding: '8px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }} />
                 <button className="btn btn-sm btn-primary" onClick={handleAddNote} style={{ whiteSpace: 'nowrap' }}>Post</button>
               </div>
               {itemNotes.length === 0 && <div style={{ textAlign: 'center', padding: '30px 0', color: 'var(--text-3)', fontSize: '13px' }}>No notes yet.</div>}
@@ -464,17 +474,20 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                 <div key={n.id} style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
                   <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'var(--green-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', color: 'var(--green-text)', flexShrink: 0 }}>C</div>
                   <div style={{ flex: 1, background: '#F0FBF7', border: '1px solid #C8EDD8', borderRadius: '0 10px 10px 10px', padding: '10px 12px' }}>
-                    <div style={{ fontSize: '12px', color: '#2D7A5A', lineHeight: '1.6' }}>{n.text}</div>
+                    <div style={{ fontSize: '12px', color: '#2D7A5A', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{n.text}</div>
                     <div style={{ fontSize: '10px', color: '#aaa', marginTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
                       <span>{n.created_at ? new Date(n.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</span>
-                      <button style={{ fontSize: '10px', color: 'var(--text-3)', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }} onClick={() => onDeleteNote(n.id)}>Delete</button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button style={{ fontSize: '10px', color: 'var(--green)', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }} onClick={() => setEditingNote({ id: n.id, text: n.text })}>Edit</button>
+                        <button style={{ fontSize: '10px', color: 'var(--text-3)', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }} onClick={() => onDeleteNote(n.id)}>Delete</button>
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
- 
+
           {/* ── IDEAS TAB ── */}
           {activeTab === 'ideas' && (
             <div>
@@ -490,7 +503,7 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
                 ))}
             </div>
           )}
- 
+
           {/* ── DETAILS TAB ── */}
           {activeTab === 'details' && (
             <div>
@@ -523,10 +536,27 @@ export default function ItemSheet({ item, facility, steps, tasks, notes, ideas, 
               )}
             </div>
           )}
- 
+
         </div>
       </div>
+
+      {/* Edit note modal */}
+      {editingNote && (
+        <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setEditingNote(null)}>
+          <div className="sheet-center" style={{ padding: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: '600' }}>Edit note</h2>
+              <button className="btn-icon" onClick={() => setEditingNote(null)} style={{ fontSize: '18px' }}>×</button>
+            </div>
+            <textarea value={editingNote.text} onChange={e => setEditingNote(p => ({ ...p, text: e.target.value }))}
+              autoFocus style={{ width: '100%', minHeight: '120px', resize: 'vertical', fontFamily: 'var(--font)', fontSize: '13px', padding: '10px', borderRadius: 'var(--radius)', border: '1px solid var(--border)', lineHeight: '1.6' }} />
+            <div className="form-actions" style={{ marginTop: '12px' }}>
+              <button className="btn btn-sm" onClick={() => setEditingNote(null)}>Cancel</button>
+              <button className="btn btn-sm btn-primary" onClick={handleUpdateNote}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
- 
