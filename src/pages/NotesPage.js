@@ -39,7 +39,7 @@ export default function NotesPage({ data }) {
         {composerOpen && (
           <div className="card" style={{ padding: '14px', marginTop: '22px' }}>
             <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Title" style={{ fontWeight: 600, marginBottom: '8px' }} autoFocus />
-            <textarea value={form.body} onChange={e => setForm(p => ({ ...p, body: e.target.value }))} placeholder="Write the note… as many lines as you need" style={{ minHeight: '70px', background: 'var(--surface)' }} />
+            <textarea value={form.body} onChange={e => setForm(p => ({ ...p, body: e.target.value }))} placeholder="Write the note? as many lines as you need" style={{ minHeight: '70px', background: 'var(--surface)' }} />
             <div style={{ display: 'flex', gap: '7px', marginTop: '8px', flexWrap: 'wrap' }}>
               <select value={form.facility_id} onChange={e => setForm(p => ({ ...p, facility_id: e.target.value }))} style={{ flex: 1, minWidth: '120px' }}>
                 <option value="">No facility</option>
@@ -53,7 +53,7 @@ export default function NotesPage({ data }) {
                 <option value="">No project</option>
                 {items.filter(i => !i.completed).map(i => {
                   const fac = facilities.find(f => f.id === i.facility_id);
-                  return <option key={i.id} value={i.id}>{fac ? fac.name + ' · ' : ''}{i.name}</option>;
+                  return <option key={i.id} value={i.id}>{fac ? fac.name + ' - ' : ''}{i.name}</option>;
                 })}
               </select>
             </div>
@@ -78,7 +78,7 @@ export default function NotesPage({ data }) {
                       <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{fmt(m.created_at)}</span>
                       {fac && <span className="badge" style={{ background: 'var(--border-2)', color: '#7A756C' }}>{fac.name}</span>}
                       {m.category && <span className="badge" style={{ background: 'var(--green-light)', color: 'var(--green)' }}>{m.category}</span>}
-                      {proj && <span onClick={() => setViewItem(proj)} style={{ fontSize: '10px', fontWeight: 600, color: 'var(--green)', cursor: 'pointer' }}>◆ {proj.name}</span>}
+                      {proj && <span onClick={() => setViewItem(proj)} style={{ fontSize: '10px', fontWeight: 600, color: 'var(--green)', cursor: 'pointer' }}>diamond {proj.name}</span>}
                     </div>
                   </div>
                   <button className="link-btn green" onClick={() => setTaskFromNote(m)}>+ Task</button>
@@ -92,7 +92,7 @@ export default function NotesPage({ data }) {
               </div>
             );
           })}
-          {facilityNotes.length === 0 && <div style={{ padding: '40px 0', textAlign: 'center', fontSize: '12px', color: 'var(--text-3)' }}>No notes yet — tap “+ Note”.</div>}
+          {facilityNotes.length === 0 && <div style={{ padding: '40px 0', textAlign: 'center', fontSize: '12px', color: 'var(--text-3)' }}>No notes yet - tap "+ Note".</div>}
         </div>
       </div>
       {viewTask && <TaskViewer task={viewTask} data={data} onClose={() => setViewTask(null)} onEdit={t => { setViewTask(null); setEditTask(t); }} />}
