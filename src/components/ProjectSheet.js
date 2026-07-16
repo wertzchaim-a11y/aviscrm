@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TaskRow, TaskViewer, TaskEditor, fmtDate } from './TaskModals';
 
-// ── PROJECT VIEWER (sheet) ──
+// ?? PROJECT VIEWER (sheet) ??
 export function ProjectSheet({ item, data, onClose, onEdit }) {
   const [viewTask, setViewTask] = useState(null);
   const [editTask, setEditTask] = useState(null);
@@ -34,15 +34,15 @@ export function ProjectSheet({ item, data, onClose, onEdit }) {
           <div style={{ flex: 1 }}>
             <div className="serif" style={{ fontSize: '19px', fontWeight: 600, lineHeight: 1.3, textDecoration: p.completed ? 'line-through' : 'none', color: p.completed ? 'var(--text-3)' : 'var(--text)' }}>{p.name}</div>
             <div style={{ display: 'flex', gap: '6px', marginTop: '7px', flexWrap: 'wrap', alignItems: 'center' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{fac ? fac.name + ' · ' : ''}{p.responsibility}{p.due_date ? ' · due ' + fmtDate(p.due_date) : ''}</span>
-              {stream && <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>↻ {stream.name}</span>}
-              {p.recur_type !== 'never' && p.recur_type && <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>↻ repeats {p.recur_type}</span>}
-              {p.assigned_to && <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>👤 {p.assigned_to}</span>}
+              <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{fac ? fac.name + ' - ' : ''}{p.responsibility}{p.due_date ? ' - due ' + fmtDate(p.due_date) : ''}</span>
+              {stream && <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>~> {stream.name}</span>}
+              {p.recur_type !== 'never' && p.recur_type && <span style={{ fontSize: '11px', color: 'var(--green)', fontWeight: 600 }}>~> repeats {p.recur_type}</span>}
+              {p.assigned_to && <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>? {p.assigned_to}</span>}
             </div>
           </div>
           <button title="Mark important" onClick={() => data.updateItem(p.id, { is_priority: !p.is_priority })}
-            style={{ border: 'none', background: 'transparent', fontSize: '17px', cursor: 'pointer', color: p.is_priority ? '#D9A24A' : '#D5D0C8' }}>★</button>
-          <button className="btn-icon" style={{ fontSize: '18px' }} onClick={onClose}>×</button>
+            style={{ border: 'none', background: 'transparent', fontSize: '17px', cursor: 'pointer', color: p.is_priority ? '#D9A24A' : '#D5D0C8' }}>*</button>
+          <button className="btn-icon" style={{ fontSize: '18px' }} onClick={onClose}>?</button>
         </div>
         <div style={{ margin: '12px 0 14px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-3)', marginBottom: '4px' }}><span>Progress</span><span>{progress}%</span></div>
@@ -51,7 +51,7 @@ export function ProjectSheet({ item, data, onClose, onEdit }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          <button className="btn btn-primary" onClick={() => data.toggleItemComplete(p)}>{p.completed ? '↩ Reopen' : '✓ Mark done'}</button>
+          <button className="btn btn-primary" onClick={() => data.toggleItemComplete(p)}>{p.completed ? '? Reopen' : 'done Mark done'}</button>
           <button className="btn" onClick={() => onEdit(p)}>Edit</button>
           {!confirmDelete
             ? <button className="btn btn-danger" style={{ marginLeft: 'auto' }} onClick={() => setConfirmDelete(true)}>Delete</button>
@@ -70,12 +70,12 @@ export function ProjectSheet({ item, data, onClose, onEdit }) {
           <div key={n.id} className="note-card">
             <div className="text">{n.text}</div>
             <button className="link-btn" onClick={() => { setEditingNoteId(n.id); setDraft(n.text); }}>edit</button>
-            <button className="link-btn danger" onClick={() => data.deleteNote(n.id)}>×</button>
+            <button className="link-btn danger" onClick={() => data.deleteNote(n.id)}>?</button>
           </div>
         ))}
         {!showNoteForm && <button className="btn btn-sm" style={{ color: 'var(--green)' }} onClick={() => { setNoteOpen(true); setDraft(''); }}>+ Add note</button>}
         {showNoteForm && <>
-          <textarea value={draft} onChange={e => setDraft(e.target.value)} placeholder="Write a note… multiple lines are fine" autoFocus />
+          <textarea value={draft} onChange={e => setDraft(e.target.value)} placeholder="Write a note? multiple lines are fine" autoFocus />
           <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
             <button className="btn btn-sm btn-primary" onClick={saveNote}>{editingNoteId != null ? 'Save note' : '+ Add note'}</button>
             <button className="btn btn-sm" onClick={() => { setNoteOpen(false); setEditingNoteId(null); setDraft(''); }}>Cancel</button>
@@ -85,7 +85,7 @@ export function ProjectSheet({ item, data, onClose, onEdit }) {
           <div className="section-label" style={{ margin: '16px 0 6px' }}>From the Notes page</div>
           {linkedMemos.map(m => (
             <div key={m.id} style={{ padding: '9px 12px', border: '1px dashed #D5D0C8', borderRadius: '9px', marginBottom: '6px' }}>
-              <div style={{ fontSize: '12px', fontWeight: 600 }}>✎ {m.title}</div>
+              <div style={{ fontSize: '12px', fontWeight: 600 }}>edit {m.title}</div>
               {m.body && <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.body.split('\n')[0]}</div>}
             </div>
           ))}
@@ -98,7 +98,7 @@ export function ProjectSheet({ item, data, onClose, onEdit }) {
   );
 }
 
-// ── PROJECT EDITOR ──
+// ?? PROJECT EDITOR ??
 export function ProjectEditor({ item, convertIdea, data, onClose }) {
   const isEdit = !!item;
   const [f, setF] = useState(() => item ? {
@@ -135,8 +135,8 @@ export function ProjectEditor({ item, convertIdea, data, onClose }) {
     <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="sheet-center" style={{ padding: '24px', width: '460px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-          <div className="serif" style={{ fontSize: '18px', fontWeight: 600 }}>{isEdit ? 'Edit project' : convertIdea ? 'Idea → project' : 'New project or event'}</div>
-          <button className="btn-icon" style={{ fontSize: '18px' }} onClick={onClose}>×</button>
+          <div className="serif" style={{ fontSize: '18px', fontWeight: 600 }}>{isEdit ? 'Edit project' : convertIdea ? 'Idea -> project' : 'New project or event'}</div>
+          <button className="btn-icon" style={{ fontSize: '18px' }} onClick={onClose}>?</button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <input value={f.name} onChange={e => set({ name: e.target.value })} placeholder="Project or event name" autoFocus={!isEdit} />
@@ -157,25 +157,25 @@ export function ProjectEditor({ item, convertIdea, data, onClose }) {
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <select value={f.stream} onChange={e => set({ stream: e.target.value })}>
-              <option value="">No rhythm — one-off</option>
-              {data.recurringItems.map(r => <option key={r.id} value={r.id}>↻ Counts as: {r.name}</option>)}
+              <option value="">No rhythm - one-off</option>
+              {data.recurringItems.map(r => <option key={r.id} value={r.id}>~> Counts as: {r.name}</option>)}
             </select>
             <button onClick={() => set({ is_priority: !f.is_priority })}
-              style={{ border: '1px solid ' + (f.is_priority ? '#E4C795' : 'var(--border)'), background: f.is_priority ? 'var(--amber-light)' : '#fff', color: f.is_priority ? 'var(--amber)' : 'var(--text-2)', borderRadius: '8px', padding: '8px 13px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', width: 'auto' }}>★ Important</button>
+              style={{ border: '1px solid ' + (f.is_priority ? '#E4C795' : 'var(--border)'), background: f.is_priority ? 'var(--amber-light)' : '#fff', color: f.is_priority ? 'var(--amber)' : 'var(--text-2)', borderRadius: '8px', padding: '8px 13px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', width: 'auto' }}>* Important</button>
           </div>
           <input value={f.assigned_to} onChange={e => set({ assigned_to: e.target.value })} placeholder="Assigned to (optional)" />
           {!isEdit && <>
-            <textarea value={f.note} onChange={e => set({ note: e.target.value })} placeholder="Note… as many lines as you need, saved to the project" style={{ minHeight: '70px' }} />
+            <textarea value={f.note} onChange={e => set({ note: e.target.value })} placeholder="Note? as many lines as you need, saved to the project" style={{ minHeight: '70px' }} />
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '9px', padding: '10px' }}>
               <div className="section-label" style={{ marginBottom: '6px' }}>Tasks for this project</div>
               {f.quickTasks.map((qt, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', padding: '3px 0' }}>
-                  <span style={{ color: 'var(--green)' }}>☑</span><span style={{ flex: 1 }}>{qt}</span>
-                  <button className="link-btn danger" onClick={() => set({ quickTasks: f.quickTasks.filter((_, j) => j !== i) })}>×</button>
+                  <span style={{ color: 'var(--green)' }}>check</span><span style={{ flex: 1 }}>{qt}</span>
+                  <button className="link-btn danger" onClick={() => set({ quickTasks: f.quickTasks.filter((_, j) => j !== i) })}>?</button>
                 </div>
               ))}
               <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
-                <input value={f.taskDraft} onChange={e => set({ taskDraft: e.target.value })} placeholder="Task name…"
+                <input value={f.taskDraft} onChange={e => set({ taskDraft: e.target.value })} placeholder="Task name?"
                   onKeyDown={e => { if (e.key === 'Enter' && f.taskDraft.trim()) set({ quickTasks: [...f.quickTasks, f.taskDraft.trim()], taskDraft: '' }); }} />
                 <button className="btn btn-sm" style={{ color: 'var(--green)' }} onClick={() => { if (f.taskDraft.trim()) set({ quickTasks: [...f.quickTasks, f.taskDraft.trim()], taskDraft: '' }); }}>+ Add</button>
               </div>
