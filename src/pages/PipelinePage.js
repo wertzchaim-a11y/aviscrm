@@ -67,13 +67,13 @@ export default function PipelinePage({ data, convertIdea, onConvertIdeaDone }) {
                       return (
                         <div key={i.id} className="card" style={{ borderRadius: '12px', padding: '12px 14px', cursor: 'pointer' }} onClick={() => setViewItem(i)}>
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
-                            <div style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.4, flex: 1 }}>{i.is_priority ? '★ ' : ''}{i.name}</div>
-                            <button className="link-btn" title="Move up" onClick={e => { e.stopPropagation(); data.moveItem(i.id, -1, peerIds); }}>↑</button>
-                            <button className="link-btn" title="Move down" onClick={e => { e.stopPropagation(); data.moveItem(i.id, 1, peerIds); }}>↓</button>
+                            <div style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1.4, flex: 1 }}>{i.is_priority ? '* ' : ''}{i.name}</div>
+                            <button className="link-btn" title="Move up" onClick={e => { e.stopPropagation(); data.moveItem(i.id, -1, peerIds); }}>up</button>
+                            <button className="link-btn" title="Move down" onClick={e => { e.stopPropagation(); data.moveItem(i.id, 1, peerIds); }}>down</button>
                           </div>
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '7px', flexWrap: 'wrap' }}>
                             <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>{fac ? fac.name : 'All facilities'}</span>
-                            {stream && <span style={{ fontSize: '10px', color: 'var(--green)', fontWeight: 600 }}>↻ {stream.name}</span>}
+                            {stream && <span style={{ fontSize: '10px', color: 'var(--green)', fontWeight: 600 }}>~> {stream.name}</span>}
                             <span style={{ fontSize: '10px', color: 'var(--text-3)', marginLeft: 'auto' }}>{fmtDate(i.due_date)}</span>
                           </div>
                           <div style={{ height: '3px', background: 'var(--border-2)', borderRadius: '2px', marginTop: '10px', overflow: 'hidden' }}>
@@ -98,7 +98,7 @@ export default function PipelinePage({ data, convertIdea, onConvertIdeaDone }) {
                 {i.body && <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5, marginTop: '5px', whiteSpace: 'pre-wrap' }}>{i.body}</div>}
                 <div style={{ display: 'flex', gap: '10px', marginTop: '10px', alignItems: 'center' }}>
                   <span style={{ fontSize: '10px', color: 'var(--text-3)', flex: 1 }}>{i.created_at ? fmtDate(i.created_at.slice(0, 10)) : ''}</span>
-                  <button className="link-btn green" onClick={() => setConvertingIdea(i)}>→ Project</button>
+                  <button className="link-btn green" onClick={() => setConvertingIdea(i)}>-> Project</button>
                   <button className="link-btn" style={{ fontSize: '11px' }} onClick={() => setIdeaForm({ id: i.id, title: i.title, body: i.body || '' })}>Edit</button>
                   <button className="link-btn danger" style={{ fontSize: '11px' }} onClick={() => data.deleteIdea(i.id)}>Delete</button>
                 </div>
@@ -117,10 +117,10 @@ export default function PipelinePage({ data, convertIdea, onConvertIdeaDone }) {
               const stream = recurringItems.find(r => r.id === i.stream);
               return (
                 <div key={i.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '11px 18px', borderTop: '1px solid var(--border-2)' }}>
-                  <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--green-light)', color: 'var(--green)', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>✓</span>
+                  <span style={{ width: 16, height: 16, borderRadius: '50%', background: 'var(--green-light)', color: 'var(--green)', fontSize: '9px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>done</span>
                   <span onClick={() => setViewItem(i)} style={{ flex: 1, fontSize: '13px', color: 'var(--text-2)', cursor: 'pointer' }}>{i.name}</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{fac ? fac.name : ''}{stream ? ' · ↻ ' + stream.name : ''}</span>
-                  <button className="link-btn green" onClick={() => data.toggleItemComplete(i)}>↩ Reopen</button>
+                  <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{fac ? fac.name : ''}{stream ? ' - ~> ' + stream.name : ''}</span>
+                  <button className="link-btn green" onClick={() => data.toggleItemComplete(i)}>? Reopen</button>
                 </div>
               );
             })}
@@ -137,11 +137,11 @@ export default function PipelinePage({ data, convertIdea, onConvertIdeaDone }) {
           <div className="sheet-center" style={{ padding: '24px', width: '440px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <div className="serif" style={{ fontSize: '18px', fontWeight: 600 }}>{ideaForm.id ? 'Edit idea' : 'New idea'}</div>
-              <button className="btn-icon" style={{ fontSize: '18px' }} onClick={() => setIdeaForm(null)}>×</button>
+              <button className="btn-icon" style={{ fontSize: '18px' }} onClick={() => setIdeaForm(null)}>?</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <input value={ideaForm.title} onChange={e => setIdeaForm(p => ({ ...p, title: e.target.value }))} placeholder="Idea title" autoFocus />
-              <textarea value={ideaForm.body} onChange={e => setIdeaForm(p => ({ ...p, body: e.target.value }))} placeholder="Details…" style={{ minHeight: '90px' }} />
+              <textarea value={ideaForm.body} onChange={e => setIdeaForm(p => ({ ...p, body: e.target.value }))} placeholder="Details?" style={{ minHeight: '90px' }} />
             </div>
             <div className="form-actions">
               <button className="btn" onClick={() => setIdeaForm(null)}>Cancel</button>
