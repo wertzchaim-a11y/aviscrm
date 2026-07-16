@@ -13,13 +13,13 @@ import { TaskEditor, TaskViewer, taskContext } from './components/TaskModals';
 import { ProjectEditor, ProjectSheet } from './components/ProjectSheet';
 
 const NAV = [
-  { id: 'today', label: 'Today', icon: '☀' },
-  { id: 'pipeline', label: 'Pipeline', icon: '⬡' },
-  { id: 'tasks', label: 'Tasks', icon: '☑' },
-  { id: 'calendar', label: 'Calendar', icon: '▦' },
-  { id: 'rhythms', label: 'Rhythms', icon: '↻' },
-  { id: 'notes', label: 'Notes', icon: '✎' },
-  { id: 'people', label: 'People', icon: '◔' },
+  { id: 'today', label: 'Today', icon: 'sun' },
+  { id: 'pipeline', label: 'Pipeline', icon: 'hex' },
+  { id: 'tasks', label: 'Tasks', icon: 'check' },
+  { id: 'calendar', label: 'Calendar', icon: 'cal' },
+  { id: 'rhythms', label: 'Rhythms', icon: '~>' },
+  { id: 'notes', label: 'Notes', icon: 'edit' },
+  { id: 'people', label: 'People', icon: 'people' },
 ];
 const NAV_MOBILE = NAV.slice(0, 4);
 const NAV_MORE = NAV.slice(4);
@@ -36,21 +36,21 @@ function SearchBar({ data, onOpenTask, onOpenItem }) {
   const query = q.toLowerCase().trim();
   const results = query.length < 2 ? [] : [
     ...data.tasks.filter(t => t.name.toLowerCase().includes(query)).slice(0, 3).map(t => ({
-      key: 't' + t.id, label: t.name, sub: taskContext(t, data), icon: '☑', tag: 'task', go: () => onOpenTask(t) })),
+      key: 't' + t.id, label: t.name, sub: taskContext(t, data), icon: 'check', tag: 'task', go: () => onOpenTask(t) })),
     ...data.items.filter(i => i.name.toLowerCase().includes(query)).slice(0, 3).map(i => {
       const fac = data.facilities.find(f => f.id === i.facility_id);
-      return { key: 'i' + i.id, label: i.name, sub: (fac ? fac.name + ' · ' : '') + i.responsibility, icon: '◆', tag: 'project', go: () => onOpenItem(i) };
+      return { key: 'i' + i.id, label: i.name, sub: (fac ? fac.name + ' - ' : '') + i.responsibility, icon: 'diamond', tag: 'project', go: () => onOpenItem(i) };
     }),
     ...data.facilityNotes.filter(n => ((n.title || '') + ' ' + (n.body || '')).toLowerCase().includes(query)).slice(0, 2).map(n => ({
-      key: 'n' + n.id, label: n.title, sub: 'Note', icon: '✎', tag: 'note', go: null })),
+      key: 'n' + n.id, label: n.title, sub: 'Note', icon: 'edit', tag: 'note', go: null })),
   ];
   return (
     <div ref={ref} style={{ position: 'relative', flex: 1, maxWidth: '420px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--border-2)', border: '1px solid var(--border)', borderRadius: '9px', padding: '7px 12px' }}>
-        <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>⌕</span>
+        <span style={{ fontSize: '12px', color: 'var(--text-3)' }}>?</span>
         <input value={q} onChange={e => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
-          placeholder="Search anything…" style={{ flex: 1, border: 'none', background: 'transparent', padding: 0, fontSize: '13px' }} />
-        {q && <button className="btn-icon" style={{ padding: 0 }} onClick={() => { setQ(''); setOpen(false); }}>×</button>}
+          placeholder="Search anything?" style={{ flex: 1, border: 'none', background: 'transparent', padding: 0, fontSize: '13px' }} />
+        {q && <button className="btn-icon" style={{ padding: 0 }} onClick={() => { setQ(''); setOpen(false); }}>?</button>}
       </div>
       {open && results.length > 0 && (
         <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid var(--border)', borderRadius: '12px', boxShadow: '0 12px 32px rgba(38,36,32,.12)', zIndex: 200, marginTop: '5px', overflow: 'hidden' }}>
@@ -83,19 +83,19 @@ function AppInner() {
   const [globalEditTask, setGlobalEditTask] = useState(null);
   const [newModal, setNewModal] = useState(null);         // 'task' | 'meeting' | 'project'
 
-  if (authLoading) return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: '14px' }}>Loading…</div>;
+  if (authLoading) return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: '14px' }}>Loading?</div>;
   if (!user) return <LoginPage />;
-  if (data.loading) return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: '14px' }}>Loading data…</div>;
+  if (data.loading) return <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: '14px' }}>Loading data?</div>;
 
   const overdueBadge = data.tasks.filter(t => !t.done && t.due_date && t.due_date < new Date().toISOString().slice(0, 10)).length;
   const goRhythm = id => { setOpenRhythm(id); setPage('rhythms'); };
 
   const addOptions = [
-    { icon: '☑', label: 'Task', sub: 'Standalone or inside anything', go: () => setNewModal('task') },
-    { icon: '◆', label: 'Project or event', sub: 'Multi-step work at a facility', go: () => setNewModal('project') },
-    { icon: '◷', label: 'Meeting', sub: 'With a date, time, and attendees', go: () => setNewModal('meeting') },
-    { icon: '↻', label: 'Rhythm log', sub: 'Record an event or doctor visit', go: () => setPage('rhythms') },
-    { icon: '✎', label: 'Note', sub: 'Something worth remembering', go: () => setPage('notes') },
+    { icon: 'check', label: 'Task', sub: 'Standalone or inside anything', go: () => setNewModal('task') },
+    { icon: 'diamond', label: 'Project or event', sub: 'Multi-step work at a facility', go: () => setNewModal('project') },
+    { icon: 'mtg', label: 'Meeting', sub: 'With a date, time, and attendees', go: () => setNewModal('meeting') },
+    { icon: '~>', label: 'Rhythm log', sub: 'Record an event or doctor visit', go: () => setPage('rhythms') },
+    { icon: 'edit', label: 'Note', sub: 'Something worth remembering', go: () => setPage('notes') },
   ];
 
   const NavBtn = ({ n }) => {
@@ -154,7 +154,7 @@ function AppInner() {
           ))}
           <button onClick={() => setShowMore(p => !p)}
             style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', padding: '8px 0 6px', fontSize: '18px', background: 'transparent', border: 'none', cursor: 'pointer', color: showMore || NAV_MORE.some(n => n.id === page) ? 'var(--green)' : 'var(--text-3)', fontFamily: 'var(--font)' }}>
-            <span>•••</span><span style={{ fontSize: '9px' }}>More</span>
+            <span>???</span><span style={{ fontSize: '9px' }}>More</span>
           </button>
         </nav>
         {showMore && (
