@@ -53,27 +53,27 @@ export default function CalendarPage({ data, onOpenRhythm }) {
     const item = t.item_id ? items.find(i => i.id === t.item_id) : null;
     const isMtg = t.task_type === 'meeting';
     push(t.due_date, {
-      text: (t.is_priority ? '★ ' : '') + (isMtg ? '◷ ' : '') + t.name + (isMtg && t.meeting_time ? ' · ' + t.meeting_time : ''),
+      text: (t.is_priority ? '* ' : '') + (isMtg ? 'mtg ' : '') + t.name + (isMtg && t.meeting_time ? ' - ' + t.meeting_time : ''),
       style: { ...(isMtg ? styles.meeting : styles.task), opacity: t.done ? 0.5 : 1, textDecoration: t.done ? 'line-through' : 'none' },
       open: () => setViewTask(t),
     }, item?.facility_id);
   });
-  items.forEach(i => { if (i.due_date && !i.completed) push(i.due_date, { text: '◆ ' + i.name, style: styles.proj, open: () => setViewItem(i) }, i.facility_id); });
+  items.forEach(i => { if (i.due_date && !i.completed) push(i.due_date, { text: 'diamond ' + i.name, style: styles.proj, open: () => setViewItem(i) }, i.facility_id); });
   outlookDbEvents
     .filter(o => o.response_status === 'accepted' || o.response_status === 'organizer')
-    .forEach(o => push(o.start_date, { text: '⊞ ' + o.subject + (o.start_time ? ' · ' + o.start_time : ''), style: styles.outlook }, null));
-  rhythmPeriods.forEach(p => push(p.start_date, { text: '↻ ' + (p.tracker === 'fundamental' ? 'Fundamental: ' : 'Theme: ') + p.title, style: styles.recur, open: () => onOpenRhythm(p.tracker) }, null));
+    .forEach(o => push(o.start_date, { text: '[] ' + o.subject + (o.start_time ? ' - ' + o.start_time : ''), style: styles.outlook }, null));
+  rhythmPeriods.forEach(p => push(p.start_date, { text: '~> ' + (p.tracker === 'fundamental' ? 'Fundamental: ' : 'Theme: ') + p.title, style: styles.recur, open: () => onOpenRhythm(p.tracker) }, null));
   ['fundamental', 'marketing'].forEach(tr => {
     const cur = curPeriod(rhythmPeriods, tr);
     if (!cur) return;
     const ns = nextStart(cur.start_date, tr);
     if (!rhythmPeriods.some(p => p.tracker === tr && p.start_date === ns))
-      push(ns, { text: '↻ Set next ' + (tr === 'fundamental' ? 'fundamental' : 'theme'), style: styles.recurSched, open: () => onOpenRhythm(tr) }, null);
+      push(ns, { text: '~> Set next ' + (tr === 'fundamental' ? 'fundamental' : 'theme'), style: styles.recurSched, open: () => onOpenRhythm(tr) }, null);
   });
   recurringLogs.forEach(lg => {
     const r = recurringItems.find(x => x.id === lg.recurring_item_id);
     const fac = facilities.find(f => f.id === lg.facility_id);
-    if (r) push(lg.log_date, { text: '↻ ' + r.name + (fac ? ' · ' + fac.name : ''), style: styles.recur, open: () => onOpenRhythm(r.id) }, lg.facility_id);
+    if (r) push(lg.log_date, { text: '~> ' + r.name + (fac ? ' - ' + fac.name : ''), style: styles.recur, open: () => onOpenRhythm(r.id) }, lg.facility_id);
   });
 
   const cells = [];
@@ -87,10 +87,10 @@ export default function CalendarPage({ data, onOpenRhythm }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <div className="page-title">{new Date(calY, calM, 1).toLocaleDateString('en-US', calY === now.getFullYear() ? { month: 'long' } : { month: 'long', year: 'numeric' })}</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button className="btn btn-sm" style={{ width: 28, padding: '4px 0', justifyContent: 'center' }} onClick={() => { setCalM(m => m === 0 ? 11 : m - 1); if (calM === 0) setCalY(y => y - 1); }}>‹</button>
-            <button className="btn btn-sm" style={{ width: 28, padding: '4px 0', justifyContent: 'center' }} onClick={() => { setCalM(m => m === 11 ? 0 : m + 1); if (calM === 11) setCalY(y => y + 1); }}>›</button>
+            <button className="btn btn-sm" style={{ width: 28, padding: '4px 0', justifyContent: 'center' }} onClick={() => { setCalM(m => m === 0 ? 11 : m - 1); if (calM === 0) setCalY(y => y - 1); }}>?</button>
+            <button className="btn btn-sm" style={{ width: 28, padding: '4px 0', justifyContent: 'center' }} onClick={() => { setCalM(m => m === 11 ? 0 : m + 1); if (calM === 11) setCalY(y => y + 1); }}>?</button>
             <button className="btn-icon" style={{ fontSize: '9px', fontWeight: 600 }} onClick={syncNow}>
-              {syncing ? '⊞ Syncing…' : lastSync ? '⊞ Synced ' + lastSync : isOutlookConnected() ? '⊞ Sync Outlook now' : '⊞ Connect Outlook'}
+              {syncing ? '[] Syncing?' : lastSync ? '[] Synced ' + lastSync : isOutlookConnected() ? '[] Sync Outlook now' : '[] Connect Outlook'}
             </button>
           </div>
         </div>
@@ -118,8 +118,8 @@ export default function CalendarPage({ data, onOpenRhythm }) {
             ))}
         </div>
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', padding: '12px 2px 0', fontSize: '10px', color: 'var(--text-3)' }}>
-          <span>↻ green = rhythm (logged / in effect) · dashed = coming up</span>
-          <span>blue = task · rust = meeting · plum = project · ⊞ slate = Outlook (confirmed only)</span>
+          <span>~> green = rhythm (logged / in effect) - dashed = coming up</span>
+          <span>blue = task - rust = meeting - plum = project - [] slate = Outlook (confirmed only)</span>
         </div>
       </div>
 
@@ -128,7 +128,7 @@ export default function CalendarPage({ data, onOpenRhythm }) {
           <div className="sheet-center" style={{ padding: '22px', width: '440px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
               <div className="serif" style={{ fontSize: '18px', fontWeight: 600 }}>{new Date(calY, calM, dayPop).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-              <button className="btn-icon" style={{ fontSize: '18px' }} onClick={() => setDayPop(null)}>×</button>
+              <button className="btn-icon" style={{ fontSize: '18px' }} onClick={() => setDayPop(null)}>?</button>
             </div>
             {(byDay[dayPop] || []).map((ev, j) => (
               <div key={j} onClick={() => { if (ev.open) { setDayPop(null); ev.open(); } }}
