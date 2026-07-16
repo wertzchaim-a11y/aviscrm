@@ -1,186 +1,104 @@
-import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import React, { useState } from 'react';
+import { TaskRow, TaskViewer, TaskEditor } from '../components/TaskModals';
+import { ProjectSheet } from '../components/ProjectSheet';
 
 const CATEGORIES = ['Marketing', 'Employee retention', 'Recruitment', 'Other'];
-const CAT_BADGE = { Marketing: 'badge-marketing', 'Employee retention': 'badge-retention', Recruitment: 'badge-recruitment', Other: 'badge-other' };
 
-export default function NotesPage({ data, onGoToPerson }) {
-  const { facilities, items } = data;
-  const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [facFilter, setFacFilter] = useState('');
-  const [catFilter, setCatFilter] = useState('');
-  const [search, setSearch] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [editingNote, setEditingNote] = useState(null);
-  const [form, setForm] = useState({ facility_id: '', category: 'Marketing', title: '', body: '', item_id: '' });
-  const [editForm, setEditForm] = useState({});
+export default function NotesPage({ data }) {
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [form, setForm] = useState({ id: null, title: '', body: '', facility_id: '', category: '', item_id: '' });
+  const [viewTask, setViewTask] = useState(null);
+  const [editTask, setEditTask] = useState(null);
+  const [taskFromNote, setTaskFromNote] = useState(null);
+  const [viewItem, setViewItem] = useState(null);
+  const { facilities, items, facilityNotes, tasks } = data;
 
-  useEffect(() => {
-    fetchNotes();
-  }, []);
-
-  const fetchNotes = async () => {
-    setLoading(true);
-    const { data: rows } = await supabase.from('facility_notes').select('*').order('created_at', { ascending: false });
-    setNotes(rows || []);
-    setLoading(false);
+  const openComposer = (note) => {
+    setForm(note
+      ? { id: note.id, title: note.title || '', body: note.body || '', facility_id: note.facility_id || '', category: note.category || '', item_id: note.item_id || '' }
+      : { id: null, title: '', body: '', facility_id: '', category: '', item_id: '' });
+    setComposerOpen(true);
   };
-
-  const handleSave = async () => {
-    if (!form.title.trim() || !form.facility_id) return;
-    const saveData = { ...form, item_id: form.item_id || null };
-    const { data: row } = await supabase.from('facility_notes').insert(saveData).select().single();
-    if (row) setNotes(prev => [row, ...prev]);
-    setForm({ facility_id: form.facility_id, category: form.category, title: '', body: '', item_id: '' });
-    setShowForm(false);
+  const save = async () => {
+    if (!form.title.trim() && !form.body.trim()) return;
+    const rec = { title: form.title.trim() || 'Untitled note', body: form.body, facility_id: form.facility_id || null, category: form.category || 'Other', item_id: form.item_id || null };
+    if (form.id) await data.updateFacilityNote(form.id, rec);
+    else await data.addFacilityNote(rec);
+    setComposerOpen(false);
   };
-
-  const handleSaveEdit = async () => {
-    if (!editForm.title.trim()) return;
-    const { data: row } = await supabase.from('facility_notes').update(editForm).eq('id', editingNote.id).select().single();
-    if (row) setNotes(prev => prev.map(n => n.id === editingNote.id ? row : n));
-    setEditingNote(null);
-  };
-
-  const handleDelete = async (id) => {
-    await supabase.from('facility_notes').delete().eq('id', id);
-    setNotes(prev => prev.filter(n => n.id !== id));
-  };
-
-  const filtered = notes.filter(n => {
-    if (facFilter && n.facility_id !== facFilter) return false;
-    if (catFilter && n.category !== catFilter) return false;
-    if (search && !n.title.toLowerCase().includes(search.toLowerCase()) && !(n.body || '').toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
-
-  const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+  const fmt = d => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
 
   return (
-    <div style={{ flex: 1, overflow: 'auto', padding: '0 0 80px' }}>
-      {/* Header */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 10, background: 'var(--bg)', borderBottom: '1px solid var(--border)', padding: '12px 16px 10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <h1 style={{ fontSize: '18px', fontWeight: '600' }}>📝 Notes</h1>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowForm(true)}>+ Add note</button>
+    <div className="page">
+      <div className="page-inner" style={{ maxWidth: '760px' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '16px' }}>
+          <div className="page-title">Notes</div>
+          <button className="btn-pill" style={{ color: 'var(--green)' }} onClick={() => composerOpen ? setComposerOpen(false) : openComposer(null)}>{composerOpen ? 'Close' : '+ Note'}</button>
         </div>
-        {/* Filters */}
-        <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', marginBottom: '6px' }}>
-          <select value={facFilter} onChange={e => setFacFilter(e.target.value)} style={{ fontSize: '11px', padding: '4px 20px 4px 7px', height: '26px', maxWidth: '120px', minWidth: 0 }}>
-            <option value="">All facilities</option>
-            {facilities.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </select>
-          <select value={catFilter} onChange={e => setCatFilter(e.target.value)} style={{ fontSize: '11px', padding: '4px 20px 4px 7px', height: '26px', maxWidth: '120px', minWidth: 0 }}>
-            <option value="">All categories</option>
-            {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-          </select>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" style={{ fontSize: '11px', padding: '4px 7px', height: '26px', maxWidth: '100px', minWidth: '70px' }} />
-        </div>
-      </div>
 
-      {/* Notes list */}
-      <div style={{ padding: '12px 16px' }}>
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-3)' }}>Loading…</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-3)' }}>
-            <div style={{ fontSize: '32px', marginBottom: '12px' }}>📝</div>
-            <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '6px' }}>No notes yet</div>
-            <div style={{ fontSize: '12px' }}>Tap "+ Add note" to write your first note.</div>
+        {composerOpen && (
+          <div className="card" style={{ padding: '14px', marginTop: '22px' }}>
+            <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Title" style={{ fontWeight: 600, marginBottom: '8px' }} autoFocus />
+            <textarea value={form.body} onChange={e => setForm(p => ({ ...p, body: e.target.value }))} placeholder="Write the note… as many lines as you need" style={{ minHeight: '70px', background: 'var(--surface)' }} />
+            <div style={{ display: 'flex', gap: '7px', marginTop: '8px', flexWrap: 'wrap' }}>
+              <select value={form.facility_id} onChange={e => setForm(p => ({ ...p, facility_id: e.target.value }))} style={{ flex: 1, minWidth: '120px' }}>
+                <option value="">No facility</option>
+                {facilities.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+              <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} style={{ flex: 1, minWidth: '120px' }}>
+                <option value="">No category</option>
+                {CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+              <select value={form.item_id} onChange={e => setForm(p => ({ ...p, item_id: e.target.value }))} style={{ flex: 1.4, minWidth: '150px' }}>
+                <option value="">No project</option>
+                {items.filter(i => !i.completed).map(i => {
+                  const fac = facilities.find(f => f.id === i.facility_id);
+                  return <option key={i.id} value={i.id}>{fac ? fac.name + ' · ' : ''}{i.name}</option>;
+                })}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <button className="btn btn-sm btn-primary" onClick={save}>{form.id ? 'Save note' : '+ Add note'}</button>
+              <button className="btn btn-sm" onClick={() => setComposerOpen(false)}>Cancel</button>
+            </div>
           </div>
-        ) : filtered.map(note => {
-          const fac = facilities.find(f => f.id === note.facility_id);
-          return (
-            <div key={note.id} className="card" style={{ padding: '12px 14px', marginBottom: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '6px' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: '600', fontSize: '14px', marginBottom: '4px', lineHeight: '1.3' }}>{note.title}</div>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    {fac && <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>{fac.name}</span>}
-                    <span className={`badge ${CAT_BADGE[note.category] || 'badge-other'}`} style={{ fontSize: '10px' }}>{note.category}</span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>· {fmtDate(note.created_at)}</span>
+        )}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '16px' }}>
+          {facilityNotes.map(m => {
+            const fac = facilities.find(f => f.id === m.facility_id);
+            const proj = m.item_id ? items.find(i => i.id === m.item_id) : null;
+            const linked = tasks.filter(t => t.facility_note_id === m.id);
+            return (
+              <div key={m.id} className="card" style={{ padding: '16px 18px' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.35 }}>{m.title}</div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '5px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>{fmt(m.created_at)}</span>
+                      {fac && <span className="badge" style={{ background: 'var(--border-2)', color: '#7A756C' }}>{fac.name}</span>}
+                      {m.category && <span className="badge" style={{ background: 'var(--green-light)', color: 'var(--green)' }}>{m.category}</span>}
+                      {proj && <span onClick={() => setViewItem(proj)} style={{ fontSize: '10px', fontWeight: 600, color: 'var(--green)', cursor: 'pointer' }}>◆ {proj.name}</span>}
+                    </div>
                   </div>
+                  <button className="link-btn green" onClick={() => setTaskFromNote(m)}>+ Task</button>
+                  <button className="link-btn" style={{ fontSize: '11px' }} onClick={() => openComposer(m)}>Edit</button>
+                  <button className="link-btn danger" style={{ fontSize: '11px' }} onClick={() => data.deleteFacilityNote(m.id)}>Delete</button>
                 </div>
-                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-                  <button className="btn btn-sm" style={{ fontSize: '11px', padding: '3px 9px' }} onClick={() => { setEditForm({ facility_id: note.facility_id, category: note.category, title: note.title, body: note.body || '' }); setEditingNote(note); }}>Edit</button>
-                  <button className="btn btn-sm" style={{ fontSize: '11px', padding: '3px 9px', color: 'var(--red)', borderColor: 'var(--red-light)' }} onClick={() => handleDelete(note.id)}>Delete</button>
-                </div>
+                {linked.length > 0 && <div style={{ marginTop: '4px' }}>
+                  {linked.map(t => <TaskRow key={t.id} t={t} data={data} onOpen={setViewTask} showSub={false} />)}
+                </div>}
+                {m.body && <div style={{ fontSize: '13px', lineHeight: 1.65, whiteSpace: 'pre-wrap', color: 'var(--text-2)', marginTop: '10px', borderTop: '1px solid var(--border-2)', paddingTop: '10px' }}>{m.body}</div>}
               </div>
-              {note.body && <div style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: '1.6', whiteSpace: 'pre-wrap', paddingTop: '6px', borderTop: '1px solid var(--border)' }}>{note.body}</div>}
-            </div>
-          );
-        })}
+            );
+          })}
+          {facilityNotes.length === 0 && <div style={{ padding: '40px 0', textAlign: 'center', fontSize: '12px', color: 'var(--text-3)' }}>No notes yet — tap “+ Note”.</div>}
+        </div>
       </div>
-
-      {/* Add note modal */}
-      {showForm && (
-        <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setShowForm(false)}>
-          <div className="sheet-center" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Add note</h2>
-              <button className="btn-icon" onClick={() => setShowForm(false)} style={{ fontSize: '18px' }}>×</button>
-            </div>
-            <div className="form-row">
-              <div className="form-group full"><label>Title *</label><input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Note title" autoFocus /></div>
-              <div className="form-group full"><label>Link to project (optional)</label>
-                <select value={form.item_id} onChange={e => setForm(p => ({ ...p, item_id: e.target.value }))}>
-                  <option value="">— No project —</option>
-                  {items.filter(i => !i.completed && i.facility_id === form.facility_id).map(i => (
-                    <option key={i.id} value={i.id}>{i.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group"><label>Facility *</label>
-                <select value={form.facility_id} onChange={e => setForm(p => ({ ...p, facility_id: e.target.value }))}>
-                  <option value="">Select facility…</option>
-                  {facilities.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                </select>
-              </div>
-              <div className="form-group"><label>Category</label>
-                <select value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
-                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="form-group full"><label>Note</label><textarea value={form.body} onChange={e => setForm(p => ({ ...p, body: e.target.value }))} placeholder="Write your note…" style={{ minHeight: '120px' }} /></div>
-            </div>
-            <div className="form-actions">
-              <button className="btn btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
-              <button className="btn btn-sm btn-primary" onClick={handleSave}>Save note</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit note modal */}
-      {editingNote && (
-        <div className="overlay overlay-center" onClick={e => e.target === e.currentTarget && setEditingNote(null)}>
-          <div className="sheet-center" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '16px', fontWeight: '600' }}>Edit note</h2>
-              <button className="btn-icon" onClick={() => setEditingNote(null)} style={{ fontSize: '18px' }}>×</button>
-            </div>
-            <div className="form-row">
-              <div className="form-group full"><label>Title</label><input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} autoFocus /></div>
-              <div className="form-group"><label>Facility</label>
-                <select value={editForm.facility_id} onChange={e => setEditForm(p => ({ ...p, facility_id: e.target.value }))}>
-                  {facilities.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-                </select>
-              </div>
-              <div className="form-group"><label>Category</label>
-                <select value={editForm.category} onChange={e => setEditForm(p => ({ ...p, category: e.target.value }))}>
-                  {CATEGORIES.map(c => <option key={c}>{c}</option>)}
-                </select>
-              </div>
-              <div className="form-group full"><label>Note</label><textarea value={editForm.body} onChange={e => setEditForm(p => ({ ...p, body: e.target.value }))} style={{ minHeight: '120px' }} /></div>
-            </div>
-            <div className="form-actions">
-              <button className="btn btn-sm" onClick={() => setEditingNote(null)}>Cancel</button>
-              <button className="btn btn-sm btn-primary" onClick={handleSaveEdit}>Save changes</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {viewTask && <TaskViewer task={viewTask} data={data} onClose={() => setViewTask(null)} onEdit={t => { setViewTask(null); setEditTask(t); }} />}
+      {editTask && <TaskEditor task={editTask} data={data} onClose={() => setEditTask(null)} />}
+      {taskFromNote && <TaskEditor preset={{ facility_note_id: taskFromNote.id, item_id: taskFromNote.item_id || '' }} data={data} onClose={() => setTaskFromNote(null)} />}
+      {viewItem && <ProjectSheet item={viewItem} data={data} onClose={() => setViewItem(null)} onEdit={() => {}} />}
     </div>
   );
 }
