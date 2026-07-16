@@ -18,7 +18,7 @@ export default function TasksPage({ data }) {
           <div className="page-title">Tasks</div>
           <button className="btn-pill" style={{ color: 'var(--green)' }} onClick={() => setNewTask(true)}>+ Task</button>
           <div style={{ display: 'flex', gap: '4px', marginLeft: 'auto' }}>
-            {[['open', 'Open'], ['important', '★ Important'], ['done', 'Done'], ['all', 'All']].map(([id, label]) => (
+            {[['open', 'Open'], ['important', '* Important'], ['done', 'Done'], ['all', 'All']].map(([id, label]) => (
               <button key={id} className={`btn-pill ${filter === id ? 'active' : ''}`} style={{ border: 'none' }} onClick={() => setFilter(id)}>{label}</button>
             ))}
           </div>
