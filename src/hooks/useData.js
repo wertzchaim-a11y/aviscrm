@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
-// Extended data hook — same API as before, plus rhythms (periods + logs),
+// Extended data hook - same API as before, plus rhythms (periods + logs),
 // facility-note CRUD, note updates, and task-note support.
 export function useData() {
   const [facilities, setFacilities] = useState([]);
@@ -48,7 +48,7 @@ export function useData() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // ── ITEMS (projects/events) ──
+  // ?? ITEMS (projects/events) ??
   const addItem = async (data) => {
     const clean = {
       name: data.name, type: data.type || 'project', facility_id: data.facility_id || null,
@@ -96,7 +96,7 @@ export function useData() {
     if (nowDone) {
       const { data: row } = await supabase.from('recurring_logs').insert({
         recurring_item_id: item.stream, item_id: item.id, facility_id: item.facility_id || null,
-        log_date: new Date().toISOString().slice(0, 10), notes: '✓ ' + item.name + ' — completed project',
+        log_date: new Date().toISOString().slice(0, 10), notes: 'done ' + item.name + ' - completed project',
       }).select().single();
       if (row) setRecurringLogs(prev => [row, ...prev]);
     } else {
@@ -105,7 +105,7 @@ export function useData() {
     }
   };
 
-  // ── STEPS ──
+  // ?? STEPS ??
   const addStep = async (data) => {
     const { data: row, error } = await supabase.from('steps').insert({ item_id: data.item_id, name: data.name, done: false }).select().single();
     if (error) { console.error('addStep:', error); return; }
@@ -123,7 +123,7 @@ export function useData() {
     setTasks(prev => prev.map(t => t.step_id === id ? { ...t, step_id: null } : t));
   };
 
-  // ── TASKS (incl. meetings via task_type) ──
+  // ?? TASKS (incl. meetings via task_type) ??
   const addTask = async (data) => {
     const clean = {
       name: data.name, due_date: data.due_date || null, assigned_to: data.assigned_to || null,
@@ -175,7 +175,7 @@ export function useData() {
     setNotes(prev => prev.filter(n => n.task_id !== id));
   };
 
-  // ── NOTES (on items, tasks, or rhythm periods) ──
+  // ?? NOTES (on items, tasks, or rhythm periods) ??
   const addNote = async (data) => {
     const { data: row, error } = await supabase.from('notes').insert(data).select().single();
     if (error) { console.error('addNote:', error); return; }
@@ -190,7 +190,7 @@ export function useData() {
     setNotes(prev => prev.filter(n => n.id !== id));
   };
 
-  // ── IDEAS ──
+  // ?? IDEAS ??
   const addIdea = async (data) => {
     const { data: row, error } = await supabase.from('ideas').insert(data).select().single();
     if (error) { console.error('addIdea:', error); return; }
@@ -205,7 +205,7 @@ export function useData() {
     setIdeas(prev => prev.filter(i => i.id !== id));
   };
 
-  // ── FACILITY NOTES (memos on the Notes page) ──
+  // ?? FACILITY NOTES (memos on the Notes page) ??
   const addFacilityNote = async (data) => {
     const { data: row, error } = await supabase.from('facility_notes').insert(data).select().single();
     if (error) { console.error('addFacilityNote:', error); return null; }
@@ -222,7 +222,7 @@ export function useData() {
     setTasks(prev => prev.map(t => t.facility_note_id === id ? { ...t, facility_note_id: null } : t));
   };
 
-  // ── RHYTHM PERIODS (fundamental / marketing theme) ──
+  // ?? RHYTHM PERIODS (fundamental / marketing theme) ??
   const setRhythmPeriod = async ({ tracker, start_date, title, description }) => {
     const { data: row, error } = await supabase.from('rhythm_periods')
       .upsert({ tracker, start_date, title, description: description || null }, { onConflict: 'tracker,start_date' })
@@ -235,7 +235,7 @@ export function useData() {
     setRhythmPeriods(prev => prev.filter(p => p.id !== id));
   };
 
-  // ── RECURRING LOGS (facility events / doctor visits) ──
+  // ?? RECURRING LOGS (facility events / doctor visits) ??
   const addRecurringLog = async (data) => {
     const clean = { recurring_item_id: data.recurring_item_id, notes: data.notes || null, item_id: data.item_id || null, facility_id: data.facility_id || null, log_date: data.log_date || new Date().toISOString().slice(0, 10) };
     const { data: row, error } = await supabase.from('recurring_logs').insert(clean).select().single();
